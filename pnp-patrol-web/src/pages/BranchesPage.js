@@ -1,0 +1,224 @@
+import React, { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import * as ronda from '../api/ronda';
+import 'leaflet/dist/leaflet.css';
+import './BranchesPage.css';
+
+function FixLeafletIcons() {
+  React.useEffect(() => {
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    });
+  }, []);
+  return null;
+}
+
+function ClickHandler({ onSelect }) {
+  useMapEvents({
+    click(e) {
+      onSelect(e.latlng);
+    },
+  });
+  return null;
+}
+
+const DEFAULT_CENTER = [14.5995, 120.9842];
+const DEFAULT_ZOOM = 12;
+
+export function BranchesPage() {
+  const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: '',
+    code: '',
+    address: '',
+    latitude: '',
+    longitude: '',
+    is_main: false,
+  });
+
+  useEffect(() => {
+    ronda.branches
+      .list()
+      .then(setBranches)
+      .catch((e) => setError(e.message || 'Failed to load branches'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const handleMapSelect = ({ lat, lng }) => {
+    setForm((prev) => ({
+      ...prev,
+      latitude: lat.toFixed(6),
+      longitude: lng.toFixed(6),
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!form.name || !form.code) {
+      setError('Name and code are required.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name,
+        code: form.code,
+        address: form.address || '',
+        is_main: form.is_main,
+        latitude: form.latitude || null,
+        longitude: form.longitude || null,
+      };
+      const created = await ronda.branches.create(payload);
+      setBranches((prev) => [...prev, created]);
+      setForm({
+        name: '',
+        code: '',
+        address: '',
+        latitude: '',
+        longitude: '',
+        is_main: false,
+      });
+    } catch (e) {
+      const msg =
+        e?.response?.data && typeof e.response.data === 'object'
+          ? JSON.stringify(e.response.data)
+          : e.message || 'Failed to create branch';
+      setError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const markerPosition =
+    form.latitude && form.longitude
+      ? [parseFloat(form.latitude), parseFloat(form.longitude)]
+      : null;
+
+  if (loading) return <div className="branches-loading">Loading branches…</div>;
+  if (error) return <div className="branches-error">{error}</div>;
+
+  return (
+    <div className="branches-page">
+      <h2>Branches</h2>
+      <p className="branches-desc">
+        Super Admin can create branches and pin their location on the map. Branch Admins are limited
+        to their own branch.
+      </p>
+
+      <div className="branches-layout">
+        <div className="branches-list">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Code</th>
+                <th>Main</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+              </tr>
+            </thead>
+            <tbody>
+              {branches.map((b) => (
+                <tr key={b.id}>
+                  <td>{b.name}</td>
+                  <td>{b.code}</td>
+                  <td>{b.is_main ? 'Yes' : 'No'}</td>
+                  <td>{b.latitude ?? '—'}</td>
+                  <td>{b.longitude ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="branches-form-card">
+          <h3>Create branch</h3>
+          <form onSubmit={handleSubmit} className="branches-form">
+            <label>
+              Name
+              <input
+                type="text"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                required
+              />
+            </label>
+            <label>
+              Code
+              <input
+                type="text"
+                name="code"
+                value={form.code}
+                onChange={handleChange}
+                required
+              />
+            </label>
+            <label>
+              Address
+              <textarea
+                name="address"
+                value={form.address}
+                onChange={handleChange}
+                rows={2}
+              />
+            </label>
+            <label className="branches-checkbox">
+              <input
+                type="checkbox"
+                name="is_main"
+                checked={form.is_main}
+                onChange={handleChange}
+              />
+              Main branch
+            </label>
+
+            <div className="branches-map-wrapper">
+              <div className="branches-map-header">
+                <span>Location (click on map to pin)</span>
+                <span className="branches-coords">
+                  {markerPosition
+                    ? `Lat: ${form.latitude}, Lng: ${form.longitude}`
+                    : 'No location selected'}
+                </span>
+              </div>
+              <MapContainer
+                center={markerPosition || DEFAULT_CENTER}
+                zoom={DEFAULT_ZOOM}
+                className="branches-map"
+                scrollWheelZoom
+              >
+                <FixLeafletIcons />
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <ClickHandler onSelect={handleMapSelect} />
+                {markerPosition && <Marker position={markerPosition} />}
+              </MapContainer>
+            </div>
+
+            {error && <p className="branches-error-inline">{error}</p>}
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? 'Saving…' : 'Create branch'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+

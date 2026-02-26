@@ -1,0 +1,74 @@
+.route-history-page h2 {
+  margin: 0 0 0.25rem;
+  color: #1e3a5f;
+}
+
+.route-desc {
+  margin: 0 0 1rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.route-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .route-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.route-session-list {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid #eee;
+}
+
+.route-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.route-select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.route-points {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.route-map-wrap {
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #eee;
+}
+
+.route-map {
+  height: 480px;
+  width: 100%;
+}
+
+.route-loading,
+.route-error {
+  padding: 2rem;
+  text-align: center;
+}
+
+.route-error {
+  color: #c00;
+}

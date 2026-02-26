@@ -1,0 +1,125 @@
+ .branches-page h2 {
+   margin: 0 0 0.25rem;
+   color: #1e3a5f;
+ }
+
+ .branches-desc {
+   margin: 0 0 1rem;
+   color: #666;
+   font-size: 0.9rem;
+ }
+
+ .branches-layout {
+   display: grid;
+   grid-template-columns: 2fr 1fr;
+   gap: 1rem;
+   align-items: flex-start;
+ }
+
+ @media (max-width: 900px) {
+   .branches-layout {
+     grid-template-columns: 1fr;
+   }
+ }
+
+ .branches-list {
+   background: #fff;
+   border-radius: 10px;
+   border: 1px solid #eee;
+   overflow: auto;
+ }
+
+ .branches-list table {
+   width: 100%;
+   border-collapse: collapse;
+   font-size: 0.9rem;
+ }
+
+ .branches-list th,
+ .branches-list td {
+   padding: 0.6rem 0.9rem;
+   border-bottom: 1px solid #f0f0f0;
+   text-align: left;
+ }
+
+ .branches-list th {
+   background: #f8f9fa;
+   font-weight: 600;
+   color: #333;
+ }
+
+ .branches-form-card {
+   background: #fff;
+   border-radius: 10px;
+   border: 1px solid #eee;
+   padding: 1rem;
+ }
+
+ .branches-form {
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;
+ }
+
+ .branches-form label {
+   display: flex;
+   flex-direction: column;
+   font-size: 0.85rem;
+   color: #444;
+   gap: 0.25rem;
+ }
+
+ .branches-form input,
+ .branches-form textarea {
+   padding: 0.45rem 0.7rem;
+   border-radius: 6px;
+   border: 1px solid #ddd;
+   font-size: 0.9rem;
+ }
+
+ .branches-checkbox {
+   flex-direction: row;
+   align-items: center;
+   gap: 0.5rem;
+ }
+
+ .branches-map-wrapper {
+   margin-top: 0.5rem;
+   border-radius: 8px;
+   border: 1px solid #ddd;
+   overflow: hidden;
+ }
+
+ .branches-map-header {
+   display: flex;
+   justify-content: space-between;
+   padding: 0.5rem 0.75rem;
+   background: #f8f9fa;
+   font-size: 0.8rem;
+   color: #555;
+ }
+
+ .branches-coords {
+   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+ }
+
+ .branches-map {
+   height: 260px;
+   width: 100%;
+ }
+
+ .branches-loading,
+ .branches-error {
+   padding: 2rem;
+   text-align: center;
+ }
+
+ .branches-error {
+   color: #c00;
+ }
+
+ .branches-error-inline {
+   color: #c00;
+   font-size: 0.8rem;
+   margin: 0;
+ }

@@ -1,0 +1,105 @@
+.dashboard h2 {
+  margin: 0 0 0.25rem;
+  color: #1e3a5f;
+}
+
+.dashboard-welcome {
+  margin: 0 0 1.5rem;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: #fff;
+  padding: 1.25rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid #eee;
+}
+
+.card-value {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e3a5f;
+}
+
+.card-label {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.dashboard-section h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.live-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  overflow: hidden;
+}
+
+.live-list li {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.live-list li:last-child {
+  border-bottom: none;
+}
+
+.badge {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.badge.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge.inactive {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.live-time {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.dashboard-loading,
+.dashboard-error {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+}
+
+.dashboard-error {
+  color: #c00;
+}
+
+.muted {
+  color: #888;
+  margin: 0;
+}

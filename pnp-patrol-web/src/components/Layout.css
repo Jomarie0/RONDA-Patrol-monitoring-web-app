@@ -1,0 +1,101 @@
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f6fa;
+}
+
+.layout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: #1e3a5f;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.layout-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.layout-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.layout-role {
+  font-size: 0.8rem;
+  opacity: 0.9;
+  text-transform: capitalize;
+}
+
+.layout-name {
+  font-weight: 500;
+}
+
+.layout-nav {
+  display: flex;
+  gap: 0;
+  padding: 0 1rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e4e8;
+}
+
+.layout-nav-link {
+  padding: 0.75rem 1.25rem;
+  border: none;
+  background: none;
+  color: #444;
+  text-decoration: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.layout-nav-link:hover {
+  color: #1e3a5f;
+}
+
+.layout-nav-link.active {
+  color: #1e3a5f;
+  font-weight: 600;
+  border-bottom-color: #1e3a5f;
+}
+
+.layout-main {
+  flex: 1;
+  padding: 1.5rem;
+}
+
+.btn {
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.6);
+}
+
+.btn-outline:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.btn-primary {
+  background: #1e3a5f;
+  color: #fff;
+  border: none;
+}
+
+.btn-primary:hover {
+  background: #2a4a7a;
+}

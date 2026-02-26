@@ -12,7 +12,9 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: '#7eb8ff',
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.6)',
+        tabBarStyle: { backgroundColor: '#1e3a5f' },
         headerShown: false,
         tabBarButton: HapticTab,
       }}>
@@ -26,6 +28,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
+          href: null,
           title: 'Explore',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
         }}
