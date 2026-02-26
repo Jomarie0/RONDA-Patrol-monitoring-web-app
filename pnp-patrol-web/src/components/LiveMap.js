@@ -26,17 +26,57 @@ function LiveMarkers({ locations, branchFilter }) {
     ? locations.filter((l) => l.branch === branchFilter)
     : locations;
 
+  // Separate locations with and without GPS
+  const withGPS = filtered.filter((l) => l.latitude != null && l.longitude != null);
+  const withoutGPS = filtered.filter((l) => l.latitude == null || l.longitude == null);
+
+  // Group by coordinates to handle overlapping markers
+  const groupedByCoords = {};
+  withGPS.forEach((loc) => {
+    const key = `${loc.latitude.toFixed(6)},${loc.longitude.toFixed(6)}`;
+    if (!groupedByCoords[key]) {
+      groupedByCoords[key] = [];
+    }
+    groupedByCoords[key].push(loc);
+  });
+
   return (
     <>
-      {filtered.filter((l) => l.latitude != null && l.longitude != null).map((loc) => (
-        <Marker key={loc.session_id} position={[loc.latitude, loc.longitude]}>
-          <Popup>
-            <strong>{loc.driver}</strong><br />
-            {loc.vehicle} — {loc.branch}<br />
-            {loc.timestamp ? new Date(loc.timestamp).toLocaleString() : '—'}
-          </Popup>
-        </Marker>
-      ))}
+      {/* Markers for locations with GPS */}
+      {Object.entries(groupedByCoords).map(([coordKey, locs], groupIndex) => {
+        const [lat, lng] = coordKey.split(',').map(parseFloat);
+        
+        return locs.map((loc, index) => {
+          // Add small offset for overlapping markers
+          const offset = index * 0.0001; // Small offset in degrees
+          const position = [lat + offset, lng + offset];
+          
+          return (
+            <Marker key={`${loc.session_id}-${index}`} position={position}>
+              <Popup>
+                <strong>{loc.driver}</strong><br />
+                {loc.vehicle} — {loc.branch}<br />
+                {loc.timestamp ? new Date(loc.timestamp).toLocaleString() : '—'}
+              </Popup>
+            </Marker>
+          );
+        });
+      })}
+      
+      {/* For sessions without GPS, show a default marker at branch location or center */}
+      {withoutGPS.map((loc) => {
+        // Use a default position - you could customize this per branch
+        const defaultPosition = [14.5995, 120.9842]; // Default center
+        return (
+          <Marker key={`no-gps-${loc.session_id}`} position={defaultPosition}>
+            <Popup>
+              <strong>{loc.driver}</strong><br />
+              {loc.vehicle} — {loc.branch}<br />
+              <span style={{color: 'red'}}>No GPS data available</span>
+            </Popup>
+          </Marker>
+        );
+      })}
     </>
   );
 }

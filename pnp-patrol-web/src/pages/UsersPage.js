@@ -18,6 +18,7 @@ export function UsersPage() {
     username: '',
     email: '',
     password: '',
+    confirmPassword: '',
     role: 'DRIVER',
     branch: '',
   });
@@ -45,8 +46,16 @@ export function UsersPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!form.username || !form.password || !form.role) {
-      setError('Username, password, and role are required.');
+    if (!form.username || !form.password || !form.confirmPassword || !form.role) {
+      setError('Username, password, confirm password, and role are required.');
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters long.');
       return;
     }
     setSaving(true);
@@ -65,6 +74,7 @@ export function UsersPage() {
         username: '',
         email: '',
         password: '',
+        confirmPassword: '',
       }));
     } catch (e) {
       const msg =
@@ -143,7 +153,23 @@ export function UsersPage() {
                 value={form.password}
                 onChange={handleChange}
                 required
+                minLength="6"
               />
+            </label>
+            <label>
+              Confirm Password
+              <input
+                type="password"
+                name="confirmPassword"
+                value={form.confirmPassword}
+                onChange={handleChange}
+                required
+                minLength="6"
+                className={form.confirmPassword && form.password !== form.confirmPassword ? 'password-mismatch' : ''}
+              />
+              {form.confirmPassword && form.password !== form.confirmPassword && (
+                <span className="password-error">Passwords do not match</span>
+              )}
             </label>
             <label>
               Role

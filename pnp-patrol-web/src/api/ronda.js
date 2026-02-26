@@ -21,6 +21,11 @@ export const users = {
   remove: (id) => api.delete(`/users/${id}/`).then((r) => r.data),
 };
 
+export const vehicles = {
+  list: () => api.get('/vehicles/').then((r) => r.data),
+  create: (payload) => api.post('/vehicles/', payload).then((r) => r.data),
+};
+
 export const sessions = {
   list: (params) => api.get('/sessions/', { params }).then((r) => r.data),
   get: (id) => api.get(`/sessions/${id}/`).then((r) => r.data),

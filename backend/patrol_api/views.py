@@ -86,10 +86,13 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 # ---------- Vehicle ----------
-class VehicleViewSet(viewsets.ReadOnlyModelViewSet):
-    """List/retrieve vehicles. Scoped by branch for Branch Admin."""
+class VehicleViewSet(viewsets.ModelViewSet):
+    """
+    Vehicles registered to a branch. Drivers can list vehicles for their branch (to choose when starting a session).
+    Super Admin / Branch Admin can create and manage vehicles (Branch Admin only for their branch).
+    """
     serializer_class = VehicleSerializer
-    permission_classes = [IsBranchAdmin, BranchScopedPermission]
+    permission_classes = [IsDriver, BranchScopedPermission]
 
     def get_queryset(self):
         user = self.request.user
@@ -97,7 +100,31 @@ class VehicleViewSet(viewsets.ReadOnlyModelViewSet):
             return Vehicle.objects.all().select_related('branch')
         if user.role == 'BRANCH_ADMIN' and user.branch_id:
             return Vehicle.objects.filter(branch_id=user.branch_id).select_related('branch')
+        if user.role == 'DRIVER' and user.branch_id:
+            return Vehicle.objects.filter(branch_id=user.branch_id).select_related('branch')
         return Vehicle.objects.none()
+
+    def perform_create(self, serializer):
+        if self.request.user.role == 'DRIVER':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Only Super Admin or Branch Admin can register vehicles.')
+        user = self.request.user
+        if user.role == 'BRANCH_ADMIN' and user.branch_id:
+            serializer.save(branch_id=user.branch_id)
+        else:
+            serializer.save()
+
+    def perform_update(self, serializer):
+        if self.request.user.role == 'DRIVER':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Only Super Admin or Branch Admin can update vehicles.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if self.request.user.role == 'DRIVER':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Only Super Admin or Branch Admin can delete vehicles.')
+        instance.delete()
 
 
 # ---------- DriverSession ----------

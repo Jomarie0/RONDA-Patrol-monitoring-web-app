@@ -54,6 +54,9 @@ export const ronda = {
     login: (username: string, password: string) =>
       api.post<{ access: string; refresh: string }>('/auth/token/', { username, password }).then((r) => r.data),
   },
+  vehicles: {
+    list: () => api.get('/vehicles/').then((r) => r.data),
+  },
   sessions: {
     list: () => api.get('/sessions/').then((r) => r.data),
     start: (vehicleId?: number) =>

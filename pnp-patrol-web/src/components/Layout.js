@@ -48,6 +48,12 @@ export function Layout({ children }) {
             Branches
           </Link>
         )}
+        <Link
+          to="/vehicles"
+          className={`layout-nav-link ${location.pathname === '/vehicles' ? 'active' : ''}`}
+        >
+          Vehicles
+        </Link>
       </nav>
       <main className="layout-main">{children}</main>
     </div>

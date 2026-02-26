@@ -1,0 +1,89 @@
+.vehicles-page h2 {
+  margin: 0 0 0.25rem;
+  color: #1e3a5f;
+}
+
+.vehicles-desc {
+  margin: 0 0 1rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.vehicles-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 900px) {
+  .vehicles-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vehicles-list {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  overflow: auto;
+}
+
+.vehicles-list table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.vehicles-list th,
+.vehicles-list td {
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: left;
+}
+
+.vehicles-list th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+}
+
+.vehicles-form-card {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  padding: 1rem;
+}
+
+.vehicles-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.vehicles-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  color: #444;
+  gap: 0.25rem;
+}
+
+.vehicles-form input,
+.vehicles-form select {
+  padding: 0.45rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  font-size: 0.9rem;
+}
+
+.vehicles-loading {
+  padding: 2rem;
+  text-align: center;
+}
+
+.vehicles-error-inline {
+  color: #c00;
+  font-size: 0.8rem;
+  margin: 0;
+}

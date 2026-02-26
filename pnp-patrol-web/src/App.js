@@ -9,6 +9,7 @@ import { SessionsPage } from './pages/SessionsPage';
 import { RouteHistoryPage } from './pages/RouteHistoryPage';
 import { UsersPage } from './pages/UsersPage';
 import { BranchesPage } from './pages/BranchesPage';
+import { VehiclesPage } from './pages/VehiclesPage';
 import './App.css';
 
 function ProtectedRoute({ children }) {
@@ -81,6 +82,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <BranchesPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vehicles"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <VehiclesPage />
             </Layout>
           </ProtectedRoute>
         }

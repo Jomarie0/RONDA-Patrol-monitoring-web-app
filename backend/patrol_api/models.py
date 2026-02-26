@@ -70,11 +70,11 @@ class User(AbstractUser):
 
 
 class Vehicle(models.Model):
-    """One patrol vehicle per branch; device fixed per vehicle."""
-    branch = models.OneToOneField(
+    """Patrol vehicles registered to a branch; driver chooses one when starting a session."""
+    branch = models.ForeignKey(
         Branch,
         on_delete=models.PROTECT,
-        related_name='vehicle',
+        related_name='vehicles',
     )
     plate_number = models.CharField(max_length=32)
     name = models.CharField(max_length=255, blank=True)

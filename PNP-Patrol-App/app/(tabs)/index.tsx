@@ -28,10 +28,19 @@ type Session = {
   end_time: string | null;
 };
 
+type Vehicle = {
+  id: number;
+  plate_number: string;
+  name?: string;
+  branch_name?: string;
+};
+
 export default function HomeScreen() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +66,21 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
+
+  const fetchVehicles = useCallback(async () => {
+    try {
+      const data = await ronda.vehicles.list();
+      const list = Array.isArray(data) ? data : data.results || [];
+      setVehicles(list);
+      if (list.length === 1) setSelectedVehicleId((list[0] as Vehicle).id);
+    } catch (_) {
+      setVehicles([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!session?.is_active) fetchVehicles();
+  }, [session?.is_active, fetchVehicles]);
 
   const sendOrQueueGps = useCallback(
     async (sessionId: number, lat: number, lon: number, timestamp: string) => {
@@ -127,14 +151,23 @@ export default function HomeScreen() {
   }, [fetchSessions]);
 
   const handleStartSession = async () => {
+    if (vehicles.length === 0) {
+      Alert.alert('No vehicles', 'No vehicles are assigned to your branch. Contact your branch admin.');
+      return;
+    }
+    if (vehicles.length > 1 && selectedVehicleId == null) {
+      Alert.alert('Select vehicle', 'Choose which vehicle you are using before starting the session.');
+      return;
+    }
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Location required', 'Allow location access to record patrol GPS.');
       return;
     }
+    const vehicleId = vehicles.length === 1 ? vehicles[0].id : selectedVehicleId ?? null;
     setActionLoading(true);
     try {
-      const newSession = await ronda.sessions.start();
+      const newSession = await ronda.sessions.start(vehicleId ?? undefined);
       setSession(newSession);
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -217,12 +250,42 @@ export default function HomeScreen() {
         )}
       </View>
 
+      {!session?.is_active && vehicles.length > 0 && (
+        <View style={styles.vehiclePicker}>
+          <Text style={styles.vehiclePickerLabel}>Choose vehicle for this session</Text>
+          {vehicles.map((v) => (
+            <TouchableOpacity
+              key={v.id}
+              style={[
+                styles.vehicleOption,
+                selectedVehicleId === v.id && styles.vehicleOptionSelected,
+              ]}
+              onPress={() => setSelectedVehicleId(v.id)}
+            >
+              <Text style={styles.vehicleOptionText}>
+                {v.plate_number} {v.name ? `— ${v.name}` : ''}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {!session?.is_active && vehicles.length === 0 && !loading && (
+        <Text style={styles.noVehicles}>
+          No vehicles assigned to your branch. Ask your branch admin to register a vehicle.
+        </Text>
+      )}
+
       <View style={styles.actions}>
         {!session?.is_active ? (
           <TouchableOpacity
-            style={[styles.button, styles.buttonStart, actionLoading && styles.buttonDisabled]}
+            style={[
+              styles.button,
+              styles.buttonStart,
+              (actionLoading || (vehicles.length > 1 && selectedVehicleId == null)) && styles.buttonDisabled,
+            ]}
             onPress={handleStartSession}
-            disabled={actionLoading}
+            disabled={actionLoading || (vehicles.length > 1 && selectedVehicleId == null)}
           >
             <Text style={styles.buttonText}>Start Session</Text>
           </TouchableOpacity>
@@ -275,6 +338,20 @@ const styles = StyleSheet.create({
   queued: { fontSize: 13, color: '#ffc107', marginTop: 4 },
 
   error: { color: '#f88', marginBottom: 12, fontSize: 14 },
+
+  vehiclePicker: { marginBottom: 16 },
+  vehiclePickerLabel: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
+  vehicleOption: {
+    backgroundColor: '#1a3452',
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  vehicleOptionSelected: { borderColor: '#2e7d32' },
+  vehicleOptionText: { fontSize: 15, color: '#fff' },
+  noVehicles: { color: '#ffc107', marginBottom: 16, fontSize: 14 },
 
   actions: { gap: 12 },
   button: {
