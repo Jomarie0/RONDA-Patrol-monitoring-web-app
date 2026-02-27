@@ -30,7 +30,21 @@ DEBUG = os.environ.get('DEBUG', 'True').lower() in ('1', 'true', 'yes', 'on')
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h.strip()]
 
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
+
+def _normalize_origin(value: str) -> str:
+    v = (value or '').strip()
+    if not v:
+        return ''
+    if v.startswith('http://') or v.startswith('https://'):
+        return v
+    return f'https://{v}'
+
+
+CSRF_TRUSTED_ORIGINS = [
+    _normalize_origin(o)
+    for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if _normalize_origin(o)
+]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
@@ -148,6 +162,8 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 # Media files (incident report images)
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -175,6 +191,6 @@ SIMPLE_JWT = {
 # CORS (adjust origins for production)
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
-_cors_allowed = [o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
+_cors_allowed = [_normalize_origin(o) for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if _normalize_origin(o)]
 if _cors_allowed:
     CORS_ALLOWED_ORIGINS = _cors_allowed
