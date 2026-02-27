@@ -2,7 +2,6 @@
  * R.O.N.D.A. — Auth context: JWT storage, user role (SUPER_ADMIN / BRANCH_ADMIN).
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import api from '../api/client';
 import * as ronda from '../api/ronda';
 
 const AuthContext = createContext(null);

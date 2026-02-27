@@ -17,7 +17,6 @@ export function VehiclesPage() {
   });
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const branchOptions = isSuperAdmin ? branches : branches.filter((b) => b.id === user?.branchId);
 
   useEffect(() => {
     async function load() {

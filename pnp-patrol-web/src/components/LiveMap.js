@@ -26,11 +26,9 @@ function LiveMarkers({ locations, branchFilter }) {
     ? locations.filter((l) => l.branch === branchFilter)
     : locations;
 
-  // Separate locations with and without GPS
   const withGPS = filtered.filter((l) => l.latitude != null && l.longitude != null);
   const withoutGPS = filtered.filter((l) => l.latitude == null || l.longitude == null);
 
-  // Group by coordinates to handle overlapping markers
   const groupedByCoords = {};
   withGPS.forEach((loc) => {
     const key = `${loc.latitude.toFixed(6)},${loc.longitude.toFixed(6)}`;
@@ -42,13 +40,11 @@ function LiveMarkers({ locations, branchFilter }) {
 
   return (
     <>
-      {/* Markers for locations with GPS */}
-      {Object.entries(groupedByCoords).map(([coordKey, locs], groupIndex) => {
+      {Object.entries(groupedByCoords).map(([coordKey, locs]) => {
         const [lat, lng] = coordKey.split(',').map(parseFloat);
         
         return locs.map((loc, index) => {
-          // Add small offset for overlapping markers
-          const offset = index * 0.0001; // Small offset in degrees
+          const offset = index * 0.0001;
           const position = [lat + offset, lng + offset];
           
           return (
@@ -63,10 +59,8 @@ function LiveMarkers({ locations, branchFilter }) {
         });
       })}
       
-      {/* For sessions without GPS, show a default marker at branch location or center */}
       {withoutGPS.map((loc) => {
-        // Use a default position - you could customize this per branch
-        const defaultPosition = [14.5995, 120.9842]; // Default center
+        const defaultPosition = [14.5995, 120.9842];
         return (
           <Marker key={`no-gps-${loc.session_id}`} position={defaultPosition}>
             <Popup>

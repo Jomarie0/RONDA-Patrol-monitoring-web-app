@@ -12,7 +12,6 @@ export const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
-  // Don't add Authorization header for login requests
   if (token && !config.url.includes('/auth/token/')) {
     config.headers.Authorization = `Bearer ${token}`;
   }
