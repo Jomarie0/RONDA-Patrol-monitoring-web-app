@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import * as ronda from '../api/ronda';
 import 'leaflet/dist/leaflet.css';
@@ -8,6 +8,29 @@ import './LiveMap.css';
 const DEFAULT_CENTER = [14.5995, 120.9842];
 const DEFAULT_ZOOM = 11;
 const REFRESH_MS = 60000;
+
+// Calculate total distance traveled in GPS trail (in km)
+function calculateTrailDistance(points) {
+  if (!points || points.length < 2) return 0;
+  let totalDistance = 0;
+  for (let i = 1; i < points.length; i++) {
+    const lat1 = points[i-1].latitude;
+    const lon1 = points[i-1].longitude;
+    const lat2 = points[i].latitude;
+    const lon2 = points[i].longitude;
+    
+    // Haversine formula
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    totalDistance += R * c;
+  }
+  return totalDistance;
+}
 
 function FixLeafletIcons() {
   useEffect(() => {
@@ -47,14 +70,45 @@ function LiveMarkers({ locations, branchFilter }) {
           const offset = index * 0.0001;
           const position = [lat + offset, lng + offset];
           
+          // Draw trail if we have recent_points
+          const trailPositions = loc.recent_points && loc.recent_points.length > 1
+            ? loc.recent_points.map(p => [p.latitude, p.longitude])
+            : [];
+          
           return (
-            <Marker key={`${loc.session_id}-${index}`} position={position}>
-              <Popup>
-                <strong>{loc.driver}</strong><br />
-                {loc.vehicle} — {loc.branch}<br />
-                {loc.timestamp ? new Date(loc.timestamp).toLocaleString() : '—'}
-              </Popup>
-            </Marker>
+            <React.Fragment key={`${loc.session_id}-${index}`}>
+              {/* Trail line */}
+              {trailPositions.length > 1 && (
+                <Polyline
+                  positions={trailPositions}
+                  color="#ff6b35"
+                  weight={4}
+                  opacity={0.8}
+                />
+              )}
+              
+              {/* Current position marker */}
+              <Marker position={position}>
+                <Popup>
+                  <strong>{loc.driver}</strong><br />
+                  {loc.vehicle} — {loc.branch}<br />
+                  {loc.timestamp ? new Date(loc.timestamp).toLocaleString() : '—'}<br />
+                  <strong>Coordinates:</strong><br />
+                  Lat: {loc.latitude?.toFixed(6) || 'N/A'}<br />
+                  Lng: {loc.longitude?.toFixed(6) || 'N/A'}<br />
+                  {loc.recent_points && loc.recent_points.length > 0 && (
+                    <>
+                      <br />Trail points: {loc.recent_points.length}
+                      {loc.recent_points.length > 1 && (
+                        <>
+                          <br />Distance: {calculateTrailDistance(loc.recent_points).toFixed(2)} km
+                        </>
+                      )}
+                    </>
+                  )}
+                </Popup>
+              </Marker>
+            </React.Fragment>
           );
         });
       })}

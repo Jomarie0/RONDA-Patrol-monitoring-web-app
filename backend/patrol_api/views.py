@@ -6,6 +6,7 @@ R.O.N.D.A. — API ViewSets.
 """
 
 from django.utils import timezone
+from datetime import timedelta
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -223,9 +224,26 @@ class LiveLocationsView(APIView):
         else:
             sessions = DriverSession.objects.none()
 
+        # Return last 10 minutes of GPS points per session for live tracking
+        ten_minutes_ago = timezone.now() - timedelta(minutes=10)
         results = []
         for s in sessions:
-            last_gps = GPSLog.objects.filter(session=s).order_by('-timestamp').first()
+            recent_gps = GPSLog.objects.filter(
+                session=s,
+                timestamp__gte=ten_minutes_ago
+            ).order_by('timestamp')
+            
+            gps_points = [
+                {
+                    'latitude': float(g.latitude),
+                    'longitude': float(g.longitude),
+                    'timestamp': g.timestamp.isoformat()
+                }
+                for g in recent_gps
+            ]
+            
+            # Also include the latest point for compatibility
+            last_gps = recent_gps.last()
             results.append({
                 'session_id': s.id,
                 'driver': s.driver.username,
@@ -234,6 +252,7 @@ class LiveLocationsView(APIView):
                 'latitude': float(last_gps.latitude) if last_gps else None,
                 'longitude': float(last_gps.longitude) if last_gps else None,
                 'timestamp': last_gps.timestamp.isoformat() if last_gps else None,
+                'recent_points': gps_points,  # New field with trail
             })
         return Response(results)
 
@@ -259,6 +278,15 @@ class GPSLogViewSet(viewsets.ModelViewSet):
         return qs.none()
 
     def perform_create(self, serializer):
+        # Ensure driver can only create GPS logs for their own active session
+        if self.request.user.role == 'DRIVER':
+            session = serializer.validated_data.get('session')
+            if session.driver_id != self.request.user.id:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('You can only add GPS logs to your own session.')
+            if not session.is_active:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError('GPS can only be recorded for an active session.')
         serializer.save()
 
 
