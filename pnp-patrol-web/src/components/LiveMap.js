@@ -219,7 +219,7 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setLocations, setAllSessions, setLastUpdate, setError, setLoading, REFRESH_MS, SMART_POLL_INTERVAL]);
 
   useEffect(() => {
     let currentInterval = REFRESH_MS;
