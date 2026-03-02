@@ -108,38 +108,6 @@ export function VehiclesPage() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (!form.plate_number.trim()) {
-      setError('Plate number is required.');
-      return;
-    }
-    const branchId = isSuperAdmin ? form.branch : user?.branchId;
-    if (!branchId) {
-      setError('Branch is required.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const created = await ronda.vehicles.create({
-        branch: Number(branchId),
-        plate_number: form.plate_number.trim(),
-        name: form.name.trim() || undefined,
-      });
-      setVehicles((prev) => [...prev, created]);
-      setForm((prev) => ({ ...prev, plate_number: '', name: '' }));
-    } catch (e) {
-      const msg =
-        e?.response?.data && typeof e.response.data === 'object'
-          ? JSON.stringify(e.response.data)
-          : e.message || 'Failed to create vehicle';
-      setError(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading) return <div className="vehicles-loading">Loading vehicles…</div>;
 
   return (

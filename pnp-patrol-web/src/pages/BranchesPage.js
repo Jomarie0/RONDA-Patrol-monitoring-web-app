@@ -139,44 +139,6 @@ export function BranchesPage() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (!form.name || !form.code) {
-      setError('Name and code are required.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const payload = {
-        name: form.name,
-        code: form.code,
-        address: form.address || '',
-        is_main: form.is_main,
-        latitude: form.latitude || null,
-        longitude: form.longitude || null,
-      };
-      const created = await ronda.branches.create(payload);
-      setBranches((prev) => [...prev, created]);
-      setForm({
-        name: '',
-        code: '',
-        address: '',
-        latitude: '',
-        longitude: '',
-        is_main: false,
-      });
-    } catch (e) {
-      const msg =
-        e?.response?.data && typeof e.response.data === 'object'
-          ? JSON.stringify(e.response.data)
-          : e.message || 'Failed to create branch';
-      setError(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const markerPosition =
     form.latitude && form.longitude
       ? [parseFloat(form.latitude), parseFloat(form.longitude)]

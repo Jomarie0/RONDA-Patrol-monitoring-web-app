@@ -122,50 +122,6 @@ export function UsersPage() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (!form.username || !form.password || !form.confirmPassword || !form.role) {
-      setError('Username, password, confirm password, and role are required.');
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters long.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const payload = {
-        username: form.username,
-        email: form.email || undefined,
-        password: form.password,
-        role: form.role,
-        branch: form.branch || null,
-      };
-      const created = await ronda.users.create(payload);
-      setUsers((prev) => [...prev, created]);
-      setForm((prev) => ({
-        ...prev,
-        username: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-      }));
-    } catch (e) {
-      const msg =
-        e?.response?.data && typeof e.response.data === 'object'
-          ? JSON.stringify(e.response.data)
-          : e.message || 'Failed to create user';
-      setError(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading) return <div className="users-loading">Loading users…</div>;
   if (error) return <div className="users-error">{error}</div>;
 

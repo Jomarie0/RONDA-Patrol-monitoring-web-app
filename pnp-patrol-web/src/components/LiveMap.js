@@ -88,7 +88,7 @@ function PersistentTrail({ sessionId, recentPoints }) {
         setTrail(newPoints);
       }
     }
-  }, [recentPoints, trail.length]);
+  }, [recentPoints, trail.length, sessionId]);
 
   return (
     <>
