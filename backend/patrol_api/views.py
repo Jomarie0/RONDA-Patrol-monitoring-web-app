@@ -228,10 +228,11 @@ class LiveLocationsView(APIView):
         ten_minutes_ago = timezone.now() - timedelta(minutes=10)
         results = []
         for s in sessions:
+            # Get all GPS points in the last 10 minutes, ordered by timestamp
             recent_gps = GPSLog.objects.filter(
                 session=s,
                 timestamp__gte=ten_minutes_ago
-            ).order_by('timestamp')
+            ).order_by('timestamp')  # Ensure chronological order
             
             gps_points = [
                 {
@@ -242,7 +243,7 @@ class LiveLocationsView(APIView):
                 for g in recent_gps
             ]
             
-            # Also include the latest point for compatibility
+            # Get the latest GPS point for compatibility
             last_gps = recent_gps.last()
             results.append({
                 'session_id': s.id,
@@ -252,7 +253,8 @@ class LiveLocationsView(APIView):
                 'latitude': float(last_gps.latitude) if last_gps else None,
                 'longitude': float(last_gps.longitude) if last_gps else None,
                 'timestamp': last_gps.timestamp.isoformat() if last_gps else None,
-                'recent_points': gps_points,  # New field with trail
+                'recent_points': gps_points,  # All points in chronological order
+                'total_points': len(gps_points),  # Total count for debugging
             })
         return Response(results)
 
