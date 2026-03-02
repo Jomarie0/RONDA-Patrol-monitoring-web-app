@@ -30,8 +30,8 @@ function FitBounds({ positions }) {
   return null;
 }
 
-const DEFAULT_CENTER = [14.5995, 120.9842];
-const DEFAULT_ZOOM = 12;
+const DEFAULT_CENTER = [14.7269, 121.8656]; // Quezon Province center
+const DEFAULT_ZOOM = 9;
 
 export function RouteHistoryPage() {
   const [sessions, setSessions] = useState([]);

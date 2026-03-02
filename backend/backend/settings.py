@@ -148,7 +148,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
@@ -192,5 +192,13 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 _cors_allowed = [_normalize_origin(o) for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if _normalize_origin(o)]
+
+# Add common Vercel URLs for CORS
+if not DEBUG:
+    _cors_allowed.extend([
+        'https://ronda-patrol-monitoring-web-app.vercel.app',
+        'https://ronda-patrol-monitoring-web-*.vercel.app',  # Wildcard for preview deployments
+    ])
+
 if _cors_allowed:
     CORS_ALLOWED_ORIGINS = _cors_allowed

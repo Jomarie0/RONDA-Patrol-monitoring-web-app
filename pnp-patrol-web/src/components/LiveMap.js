@@ -5,8 +5,8 @@ import * as ronda from '../api/ronda';
 import 'leaflet/dist/leaflet.css';
 import './LiveMap.css';
 
-const DEFAULT_CENTER = [14.5995, 120.9842];
-const DEFAULT_ZOOM = 11;
+const DEFAULT_CENTER = [14.7269, 121.8656]; // Quezon Province center
+const DEFAULT_ZOOM = 9;
 const REFRESH_MS = 60000;
 
 // Calculate total distance traveled in GPS trail (in km)
@@ -114,7 +114,7 @@ function LiveMarkers({ locations, branchFilter }) {
       })}
       
       {withoutGPS.map((loc) => {
-        const defaultPosition = [14.5995, 120.9842];
+        const defaultPosition = [14.7269, 121.8656]; // Quezon Province center
         return (
           <Marker key={`no-gps-${loc.session_id}`} position={defaultPosition}>
             <Popup>
@@ -137,12 +137,26 @@ function MapCenter({ center }) {
   return null;
 }
 
+function MapZoomToDriver({ driverName, locations }) {
+  const map = useMap();
+  useEffect(() => {
+    if (driverName && locations.length > 0) {
+      const driver = locations.find(loc => loc.driver === driverName);
+      if (driver && driver.latitude && driver.longitude) {
+        map.setView([driver.latitude, driver.longitude], 15);
+      }
+    }
+  }, [map, driverName, locations]);
+  return null;
+}
+
 export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
   const [locations, setLocations] = useState([]);
   const [allSessions, setAllSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [selectedDriver, setSelectedDriver] = useState('');
   const fetchRef = useRef(null);
 
   const fetchLive = useCallback(async () => {
@@ -174,6 +188,9 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
   const withCoords = displayList.filter((l) => l.latitude != null && l.longitude != null);
   const center = withCoords.length ? [withCoords[0].latitude, withCoords[0].longitude] : DEFAULT_CENTER;
 
+  // Get unique active drivers for dropdown
+  const activeDrivers = [...new Set(locations.filter(l => l.latitude != null && l.longitude != null).map(l => l.driver))];
+
   if (loading) return <div className="live-map-loading">Loading map…</div>;
   if (error) return <div className="live-map-error">{error}</div>;
 
@@ -192,6 +209,21 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
             ))}
           </select>
         )}
+        
+        {activeDrivers.length > 0 && (
+          <select
+            value={selectedDriver}
+            onChange={(e) => setSelectedDriver(e.target.value)}
+            className="live-map-select"
+            style={{ marginLeft: '10px' }}
+          >
+            <option value="">Select driver to zoom</option>
+            {activeDrivers.map((driver) => (
+              <option key={driver} value={driver}>{driver}</option>
+            ))}
+          </select>
+        )}
+        
         <span className="live-map-updated">
           Refreshes every 60s. Last: {lastUpdate ? lastUpdate.toLocaleTimeString() : '—'}
         </span>
@@ -201,6 +233,7 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <LiveMarkers locations={locations} branchFilter={branchFilter} />
         <MapCenter center={center} />
+        <MapZoomToDriver driverName={selectedDriver} locations={locations} />
       </MapContainer>
       <div className="live-map-legend">
         <span className="badge active">Active</span> Has recent GPS
