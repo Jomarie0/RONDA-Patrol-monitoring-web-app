@@ -224,14 +224,14 @@ class LiveLocationsView(APIView):
         else:
             sessions = DriverSession.objects.none()
 
-        # Return last 10 minutes of GPS points per session for live tracking
-        ten_minutes_ago = timezone.now() - timedelta(minutes=10)
+        # Return last 5 minutes of GPS points per session for real-time tracking
+        five_minutes_ago = timezone.now() - timedelta(minutes=5)
         results = []
         for s in sessions:
-            # Get all GPS points in the last 10 minutes, ordered by timestamp
+            # Get all GPS points in the last 5 minutes, ordered by timestamp
             recent_gps = GPSLog.objects.filter(
                 session=s,
-                timestamp__gte=ten_minutes_ago
+                timestamp__gte=five_minutes_ago
             ).order_by('timestamp')  # Ensure chronological order
             
             gps_points = [
