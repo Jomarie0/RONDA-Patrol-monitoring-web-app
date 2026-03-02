@@ -7,7 +7,7 @@ import './LiveMap.css';
 
 const DEFAULT_CENTER = [14.7269, 121.8656]; // Quezon Province center
 const DEFAULT_ZOOM = 9;
-const REFRESH_MS = 60000;
+const REFRESH_MS = 5000; // 5 seconds for real-time tracking
 
 // Calculate total distance traveled in GPS trail (in km)
 function calculateTrailDistance(points) {
@@ -254,7 +254,7 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
         )}
         
         <span className="live-map-updated">
-          Refreshes every 60s. Last: {lastUpdate ? lastUpdate.toLocaleTimeString() : '—'}
+          Real-time updates every 5s. Last: {lastUpdate ? lastUpdate.toLocaleTimeString() : '—'}
         </span>
       </div>
       <MapContainer center={center} zoom={DEFAULT_ZOOM} className="live-map" scrollWheelZoom>
