@@ -81,13 +81,11 @@ function PersistentTrail({ sessionId, recentPoints }) {
     if (trail.length === 0) {
       // First time, set the entire trail
       setTrail(newPoints);
-      console.log('📍 Trail initialized for session:', sessionId, 'with', newPoints.length, 'points');
     } else {
       // Only update if we have more points than before
       if (newPoints.length > trail.length) {
         const newPointsCount = newPoints.length - trail.length;
         setTrail(newPoints);
-        console.log('➕ Trail extended for session:', sessionId, 'added', newPointsCount, 'new points (total:', newPoints.length, ')');
       }
     }
   }, [recentPoints, trail.length]);
@@ -203,28 +201,6 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
       const activeDriversWithGPS = liveData.filter(loc => loc.latitude != null && loc.longitude != null);
       const hasActiveDrivers = activeDriversWithGPS.length > 0;
       
-      // Log GPS updates for debugging
-      liveData.forEach(location => {
-        if (location.recent_points && location.recent_points.length > 0) {
-          const latestPoint = location.recent_points[location.recent_points.length - 1];
-          console.log('🗺️ Live GPS Update Received:', {
-            driver: location.driver,
-            sessionId: location.session_id,
-            latestPoint: latestPoint,
-            totalPoints: location.recent_points.length,
-            timestamp: new Date().toISOString()
-          });
-        }
-      });
-      
-      // Log polling decision
-      console.log('⚡ Smart Polling:', {
-        activeDrivers: activeDriversWithGPS.length,
-        hasActiveDrivers: hasActiveDrivers,
-        nextInterval: hasActiveDrivers ? REFRESH_MS : SMART_POLL_INTERVAL,
-        reason: hasActiveDrivers ? 'Active drivers detected' : 'No active drivers'
-      });
-      
       setLocations(liveData);
       setAllSessions(sessionsData);
       setLastUpdate(new Date());
@@ -233,14 +209,12 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
       // Return polling decision for useEffect
       return hasActiveDrivers ? REFRESH_MS : SMART_POLL_INTERVAL;
     } catch (e) {
-      console.error('❌ Failed to fetch live GPS data:', e);
       const errorMessage = e.message || 'Failed to load live GPS data';
       setError(errorMessage);
       
       // Don't change locations on error, keep last known data
       
       // Return slower polling on error to reduce server load
-      console.log('🔄 Error detected, using slower polling interval');
       return SMART_POLL_INTERVAL * 2; // Even slower on error
     } finally {
       setLoading(false);
@@ -273,11 +247,8 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
             if (!isMounted) return;
             await setupPolling();
           }, currentInterval);
-          
-          console.log('🔄 Polling interval updated to:', currentInterval, 'ms');
         }
       } catch (error) {
-        console.error('❌ Polling setup failed:', error);
         if (isMounted) {
           setError('Failed to setup polling');
         }
