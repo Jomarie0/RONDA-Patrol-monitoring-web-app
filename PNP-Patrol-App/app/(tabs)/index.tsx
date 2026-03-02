@@ -16,8 +16,16 @@ import { ronda } from '@/lib/api';
 import { pushToQueue, flushQueue, getQueue } from '@/lib/gps-queue';
 import { useRouter } from 'expo-router';
 
-const GPS_INTERVAL_MS = 5000; // 5 seconds for continuous tracking
+const GPS_INTERVAL_MS = 5000; // Base interval (will be adapted)
 const MIN_DISTANCE_METERS = 5; // Minimum movement to trigger update
+
+// Adaptive GPS interval based on movement
+const getAdaptiveInterval = (speed?: number | null) => {
+  if (!speed || speed === 0) return 30000;      // Stationary: 30s
+  if (speed < 2) return 15000;                 // Walking: 15s
+  if (speed < 8) return 10000;                 // Slow vehicle: 10s
+  return 5000;                                 // Fast vehicle: 5s
+};
 
 type Session = {
   id: number;
@@ -49,6 +57,7 @@ export default function HomeScreen() {
   const [queuedCount, setQueuedCount] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const watchRef = useRef<Location.LocationSubscription | null>(null);
+  const adaptiveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -89,11 +98,14 @@ export default function HomeScreen() {
       try {
         await ronda.gpsLogs.create(sessionId, lat, lon, timestamp);
         setLastGpsTime(timestamp);
-      } catch {
+        console.log('✅ GPS data sent successfully:', { sessionId, lat, lon, timestamp });
+      } catch (error) {
+        console.log('📦 GPS send failed, queuing data:', { sessionId, lat, lon, timestamp, error });
         await pushToQueue({ sessionId, latitude: lat, longitude: lon, timestamp });
         const { getQueue } = await import('@/lib/gps-queue');
         const q = await getQueue();
         setQueuedCount(q.length);
+        console.log('📋 Queue size after adding:', q.length);
       }
     },
     []
@@ -119,50 +131,164 @@ export default function HomeScreen() {
     }
   }, [session, sendOrQueueGps]);
 
+  const stopTracking = useCallback(() => {
+    if (watchRef.current) {
+      watchRef.current.remove();
+      watchRef.current = null;
+      console.log('🛑 GPS watchPosition stopped');
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      console.log('🛑 GPS interval tracking stopped');
+    }
+    if (adaptiveIntervalRef.current) {
+      clearInterval(adaptiveIntervalRef.current);
+      adaptiveIntervalRef.current = null;
+      console.log('🛑 Adaptive GPS tracking stopped');
+    }
+    console.log('⏹️ All GPS tracking stopped');
+  }, []);
+
   const startContinuousTracking = useCallback(async () => {
-    if (!session?.is_active) return;
-    const { status } = await Location.getForegroundPermissionsAsync();
-    if (status !== 'granted') return;
+    if (!session?.is_active) {
+      console.log('⚠️ Cannot start tracking: No active session');
+      return;
+    }
+
+    // Clear any existing tracking first
+    stopTracking();
 
     try {
-      // Start with current position
-      await captureAndSendGps();
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.error('❌ Location permission denied');
+        Alert.alert('Location Required', 'Please enable location access to track your patrol route.');
+        return;
+      }
 
-      // Then start continuous tracking
+      console.log('🚀 Starting adaptive GPS tracking for session:', session.id);
+
+      // Get initial position
+      const initialLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      
+      await sendOrQueueGps(
+        session.id,
+        initialLocation.coords.latitude,
+        initialLocation.coords.longitude,
+        new Date().toISOString()
+      );
+
+      // Start adaptive tracking
+      const startAdaptiveTracking = (speed: number = 0) => {
+        const adaptiveInterval = getAdaptiveInterval(speed);
+        
+        console.log('⚡ Adaptive GPS Interval:', {
+          speed: speed,
+          interval: adaptiveInterval,
+          reason: speed === 0 ? 'Stationary' : speed < 2 ? 'Walking' : speed < 8 ? 'Slow vehicle' : 'Fast vehicle'
+        });
+
+        // Clear existing adaptive interval
+        if (adaptiveIntervalRef.current) {
+          clearInterval(adaptiveIntervalRef.current);
+          adaptiveIntervalRef.current = null;
+        }
+
+        // Set new adaptive interval
+        adaptiveIntervalRef.current = setInterval(async () => {
+          if (!session?.is_active) {
+            console.log('⏹️ Session no longer active, stopping adaptive tracking');
+            stopTracking();
+            return;
+          }
+
+          try {
+            const currentLocation = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.High,
+            });
+            const currentSpeed = currentLocation.coords.speed || 0;
+            
+            await sendOrQueueGps(
+              session.id,
+              currentLocation.coords.latitude,
+              currentLocation.coords.longitude,
+              new Date().toISOString()
+            );
+            
+            console.log('🔄 Adaptive GPS update:', {
+              speed: currentSpeed,
+              interval: adaptiveInterval
+            });
+
+            // Adjust interval if speed changed significantly
+            const newInterval = getAdaptiveInterval(currentSpeed);
+            if (Math.abs(newInterval - adaptiveInterval) > 5000) {
+              console.log('🔄 Speed changed significantly, adjusting interval');
+              startAdaptiveTracking(currentSpeed);
+            }
+          } catch (error) {
+            console.error('❌ Adaptive GPS update failed:', error);
+            // Don't stop tracking on single failure, just log it
+          }
+        }, adaptiveInterval);
+      };
+
+      // Start with watchPosition for movement detection
       watchRef.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
-          timeInterval: GPS_INTERVAL_MS,
+          timeInterval: 5000,
           distanceInterval: MIN_DISTANCE_METERS,
         },
         async (location) => {
           if (!session?.is_active) return;
+          
+          const speed = location.coords.speed || 0;
           const ts = new Date().toISOString();
+          
+          console.log('📍 GPS Movement Detected:', {
+            sessionId: session.id,
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            accuracy: location.coords.accuracy,
+            speed: speed,
+            timestamp: ts
+          });
+          
           await sendOrQueueGps(
             session.id,
             location.coords.latitude,
             location.coords.longitude,
             ts
           );
+
+          // Start/adjust adaptive tracking based on movement
+          startAdaptiveTracking(speed);
         }
       );
+      
+      // Start initial adaptive tracking
+      startAdaptiveTracking(initialLocation.coords.speed || 0);
+      
+      console.log('✅ Adaptive GPS tracking started successfully');
     } catch (error) {
-      console.error('Failed to start GPS tracking:', error);
-      // Fallback to interval-based tracking
-      intervalRef.current = setInterval(captureAndSendGps, GPS_INTERVAL_MS);
+      console.error('❌ Failed to start GPS tracking:', error);
+      
+      // Fallback to simple interval tracking
+      console.log('🔄 Falling back to simple interval tracking');
+      try {
+        await captureAndSendGps();
+        intervalRef.current = setInterval(captureAndSendGps, 30000); // Conservative 30s fallback
+        console.log('✅ Fallback tracking started');
+      } catch (fallbackError) {
+        console.error('❌ Even fallback tracking failed:', fallbackError);
+        Alert.alert('GPS Error', 'Unable to start GPS tracking. Please check your location settings.');
+      }
     }
-  }, [session, captureAndSendGps, sendOrQueueGps]);
-
-  const stopTracking = useCallback(() => {
-    if (watchRef.current) {
-      watchRef.current.remove();
-      watchRef.current = null;
-    }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
+  }, [session, captureAndSendGps, sendOrQueueGps, stopTracking]);
 
   useEffect(() => {
     if (!session?.is_active) {
@@ -208,12 +334,15 @@ export default function HomeScreen() {
     const vehicleId = vehicles.length === 1 ? vehicles[0].id : selectedVehicleId ?? null;
     setActionLoading(true);
     try {
+      console.log('🚗 Starting session with vehicle:', vehicleId);
       const newSession = await ronda.sessions.start(vehicleId ?? undefined);
       setSession(newSession);
+      console.log('✅ Session started successfully:', newSession.id);
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
         || (e as Error)?.message
         || 'Failed to start session';
+      console.error('❌ Failed to start session:', e);
       Alert.alert('Error', String(msg));
     } finally {
       setActionLoading(false);
@@ -224,11 +353,14 @@ export default function HomeScreen() {
     if (!session?.id) return;
     setActionLoading(true);
     try {
+      console.log('🛑 Stopping session:', session.id);
       await ronda.sessions.stop(session.id);
       setSession(null);
       setLastGpsTime(null);
+      console.log('✅ Session stopped successfully');
     } catch (e: unknown) {
       const msg = (e as Error)?.message || 'Failed to stop session';
+      console.error('❌ Failed to stop session:', e);
       Alert.alert('Error', String(msg));
     } finally {
       setActionLoading(false);
