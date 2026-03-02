@@ -64,6 +64,59 @@ class BranchViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('Only Super Admin can update branches.')
         serializer.save()
 
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to handle related data safely"""
+        try:
+            branch = self.get_object()
+            
+            # Only Super Admin can delete branches
+            if not request.user.is_super_admin:
+                return Response(
+                    {'detail': 'Only Super Admin can delete branches.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Check if branch has active sessions
+            active_sessions = DriverSession.objects.filter(branch=branch, is_active=True)
+            if active_sessions.exists():
+                return Response(
+                    {'detail': 'Cannot delete branch with active patrol sessions. Stop all sessions first.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if branch has assigned users
+            users_count = User.objects.filter(branch=branch).count()
+            if users_count > 0:
+                return Response(
+                    {'detail': f'Cannot delete branch with {users_count} assigned users. Reassign or delete users first.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if branch has vehicles
+            vehicles_count = Vehicle.objects.filter(branch=branch).count()
+            if vehicles_count > 0:
+                return Response(
+                    {'detail': f'Cannot delete branch with {vehicles_count} registered vehicles. Delete vehicles first.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if branch has historical data
+            session_count = DriverSession.objects.filter(branch=branch).count()
+            
+            if session_count > 0:
+                print(f"Deleting branch {branch.name} ({branch.code}) with {session_count} historical sessions")
+            
+            # Proceed with deletion
+            self.perform_destroy(branch)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+            
+        except Exception as e:
+            print(f"Error deleting branch: {e}")
+            return Response(
+                {'detail': f'Failed to delete branch: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 # ---------- User (admin can only give accounts for branch and drivers) ----------
 class UserViewSet(viewsets.ModelViewSet):
@@ -84,6 +137,50 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action in ('create', 'update', 'partial_update'):
             return UserCreateUpdateSerializer
         return UserListSerializer
+
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to handle related data safely"""
+        try:
+            user = self.get_object()
+            
+            # Check if user has active sessions (prevent deletion of active users)
+            active_sessions = DriverSession.objects.filter(driver=user, is_active=True)
+            if active_sessions.exists():
+                return Response(
+                    {'detail': 'Cannot delete user with active patrol sessions. Stop all sessions first.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if user is a branch admin with drivers (prevent deletion of responsible admins)
+            if user.role == 'BRANCH_ADMIN':
+                drivers_in_branch = User.objects.filter(branch=user.branch, role='DRIVER').exclude(id=user.id)
+                if drivers_in_branch.exists():
+                    return Response(
+                        {'detail': 'Cannot delete branch admin with assigned drivers. Reassign drivers first.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            # Count historical data for logging
+            session_count = DriverSession.objects.filter(driver=user).count()
+            gps_count = GPSLog.objects.filter(session__driver=user).count()
+            
+            if session_count > 0:
+                print(f"Deleting user {user.username} with {session_count} historical sessions and {gps_count} GPS records")
+                print(f"WARNING: Sessions will be preserved but driver field will be set to NULL")
+            
+            # Update sessions to set driver to NULL before deleting user
+            DriverSession.objects.filter(driver=user).update(driver=None)
+            
+            # Proceed with user deletion
+            self.perform_destroy(user)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+            
+        except Exception as e:
+            print(f"Error deleting user: {e}")
+            return Response(
+                {'detail': f'Failed to delete user: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 # ---------- Vehicle ----------
@@ -112,8 +209,36 @@ class VehicleViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.role == 'BRANCH_ADMIN' and user.branch_id:
             serializer.save(branch_id=user.branch_id)
-        else:
-            serializer.save()
+
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to handle related data safely"""
+        try:
+            vehicle = self.get_object()
+            
+            # Check if vehicle has active sessions
+            active_sessions = DriverSession.objects.filter(vehicle=vehicle, is_active=True)
+            if active_sessions.exists():
+                return Response(
+                    {'detail': 'Cannot delete vehicle with active patrol sessions. Stop all sessions first.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if vehicle has historical data
+            session_count = DriverSession.objects.filter(vehicle=vehicle).count()
+            
+            if session_count > 0:
+                print(f"Deleting vehicle {vehicle.plate_number} with {session_count} historical sessions")
+            
+            # Proceed with deletion
+            self.perform_destroy(vehicle)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+            
+        except Exception as e:
+            print(f"Error deleting vehicle: {e}")
+            return Response(
+                {'detail': f'Failed to delete vehicle: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def perform_update(self, serializer):
         if self.request.user.role == 'DRIVER':
@@ -216,47 +341,87 @@ class LiveLocationsView(APIView):
     permission_classes = [IsBranchAdmin]
 
     def get(self, request):
-        user = request.user
-        if user.role == 'SUPER_ADMIN':
-            sessions = DriverSession.objects.filter(is_active=True).select_related('driver', 'vehicle', 'branch')
-        elif user.role == 'BRANCH_ADMIN' and user.branch_id:
-            sessions = DriverSession.objects.filter(is_active=True, branch_id=user.branch_id).select_related('driver', 'vehicle', 'branch')
-        else:
-            sessions = DriverSession.objects.none()
+        try:
+            user = request.user
+            if user.role == 'SUPER_ADMIN':
+                sessions = DriverSession.objects.filter(is_active=True).select_related('driver', 'vehicle', 'branch')
+            elif user.role == 'BRANCH_ADMIN' and user.branch_id:
+                sessions = DriverSession.objects.filter(is_active=True, branch_id=user.branch_id).select_related('driver', 'vehicle', 'branch')
+            else:
+                sessions = DriverSession.objects.none()
 
-        # Return last 5 minutes of GPS points per session for real-time tracking
-        five_minutes_ago = timezone.now() - timedelta(minutes=5)
-        results = []
-        for s in sessions:
-            # Get all GPS points in the last 5 minutes, ordered by timestamp
-            recent_gps = GPSLog.objects.filter(
-                session=s,
-                timestamp__gte=five_minutes_ago
-            ).order_by('timestamp')  # Ensure chronological order
+            # Return last 3 minutes of GPS points per session for real-time tracking (reduced from 5 minutes)
+            three_minutes_ago = timezone.now() - timedelta(minutes=3)
+            results = []
             
-            gps_points = [
-                {
-                    'latitude': float(g.latitude),
-                    'longitude': float(g.longitude),
-                    'timestamp': g.timestamp.isoformat()
-                }
-                for g in recent_gps
-            ]
+            for s in sessions:
+                try:
+                    # Get all GPS points in the last 3 minutes, ordered by timestamp
+                    recent_gps = GPSLog.objects.filter(
+                        session=s,
+                        timestamp__gte=three_minutes_ago
+                    ).order_by('timestamp')  # Ensure chronological order
+                    
+                    # Validate GPS data and filter out invalid points
+                    valid_gps_points = []
+                    for g in recent_gps:
+                        try:
+                            lat = float(g.latitude)
+                            lon = float(g.longitude)
+                            
+                            # Validate coordinates (Philippines bounds)
+                            if not (4.0 <= lat <= 21.0 and 112.0 <= lon <= 131.0):
+                                print(f"Invalid GPS coordinates for session {s.id}: {lat}, {lon}")
+                                continue
+                                
+                            valid_gps_points.append({
+                                'latitude': lat,
+                                'longitude': lon,
+                                'timestamp': g.timestamp.isoformat()
+                            })
+                        except (ValueError, TypeError) as e:
+                            print(f"Invalid GPS data for session {s.id}: {e}")
+                            continue
+                    
+                    # Get the latest GPS point for compatibility
+                    last_gps = recent_gps.last() if recent_gps.exists() else None
+                    
+                    result = {
+                        'session_id': s.id,
+                        'driver': s.driver.username,
+                        'vehicle': s.vehicle.plate_number,
+                        'branch': s.branch.code,
+                        'latitude': float(last_gps.latitude) if last_gps else None,
+                        'longitude': float(last_gps.longitude) if last_gps else None,
+                        'timestamp': last_gps.timestamp.isoformat() if last_gps else None,
+                        'recent_points': valid_gps_points,  # All valid points in chronological order
+                        'total_points': len(valid_gps_points),  # Total count for debugging
+                    }
+                    results.append(result)
+                    
+                except Exception as e:
+                    print(f"Error processing session {s.id}: {e}")
+                    # Add session with no GPS data rather than failing completely
+                    results.append({
+                        'session_id': s.id,
+                        'driver': s.driver.username,
+                        'vehicle': s.vehicle.plate_number,
+                        'branch': s.branch.code,
+                        'latitude': None,
+                        'longitude': None,
+                        'timestamp': None,
+                        'recent_points': [],
+                        'total_points': 0,
+                    })
             
-            # Get the latest GPS point for compatibility
-            last_gps = recent_gps.last()
-            results.append({
-                'session_id': s.id,
-                'driver': s.driver.username,
-                'vehicle': s.vehicle.plate_number,
-                'branch': s.branch.code,
-                'latitude': float(last_gps.latitude) if last_gps else None,
-                'longitude': float(last_gps.longitude) if last_gps else None,
-                'timestamp': last_gps.timestamp.isoformat() if last_gps else None,
-                'recent_points': gps_points,  # All points in chronological order
-                'total_points': len(gps_points),  # Total count for debugging
-            })
-        return Response(results)
+            return Response(results)
+            
+        except Exception as e:
+            print(f"Critical error in LiveLocationsView: {e}")
+            return Response(
+                {'error': 'Failed to load live locations', 'detail': str(e)},
+                status=500
+            )
 
 
 # ---------- GPSLog ----------

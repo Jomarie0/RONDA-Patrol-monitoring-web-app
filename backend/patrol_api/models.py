@@ -91,7 +91,7 @@ class DriverSession(models.Model):
     """
     Driver session: one driver, one vehicle, one branch. Only one active session per driver.
     """
-    driver = models.ForeignKey(User, on_delete=models.PROTECT, related_name='sessions')
+    driver = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='sessions')
     vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name='sessions')
     branch = models.ForeignKey(Branch, on_delete=models.PROTECT, related_name='sessions')
     start_time = models.DateTimeField()
@@ -114,6 +114,11 @@ class GPSLog(models.Model):
 
     class Meta:
         ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['session', 'timestamp']),  # For recent GPS queries
+            models.Index(fields=['timestamp']),              # For cleanup jobs
+            models.Index(fields=['session']),                # For session-based queries
+        ]
 
     def __str__(self):
         return f"GPS {self.session_id} @ {self.timestamp}"

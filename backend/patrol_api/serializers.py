@@ -106,7 +106,7 @@ class VehicleSerializer(serializers.ModelSerializer):
 
 class DriverSessionSerializer(serializers.ModelSerializer):
     """DriverSession with optional nested read."""
-    driver_username = serializers.CharField(source='driver.username', read_only=True)
+    driver_username = serializers.CharField(source='driver.username', read_only=True, allow_null=True)
     vehicle_plate = serializers.CharField(source='vehicle.plate_number', read_only=True)
     branch_name = serializers.CharField(source='branch.name', read_only=True)
 
