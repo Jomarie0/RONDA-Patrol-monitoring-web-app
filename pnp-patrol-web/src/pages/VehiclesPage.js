@@ -10,6 +10,7 @@ export function VehiclesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState(null);
   const [form, setForm] = useState({
     branch: '',
     plate_number: '',
@@ -37,6 +38,74 @@ export function VehiclesPage() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEdit = (vehicle) => {
+    setEditingVehicle(vehicle);
+    setForm({
+      branch: vehicle.branch?.id || '',
+      plate_number: vehicle.plate_number,
+      name: vehicle.name || '',
+    });
+    setError('');
+  };
+
+  const handleDelete = async (vehicleId) => {
+    if (!window.confirm('Are you sure you want to delete this vehicle?')) return;
+    
+    try {
+      await ronda.vehicles.remove(vehicleId);
+      setVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
+      setError('');
+    } catch (e) {
+      setError(e.message || 'Failed to delete vehicle');
+    }
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!form.plate_number.trim()) {
+      setError('Plate number is required.');
+      return;
+    }
+    
+    const branchId = isSuperAdmin ? form.branch : user?.branchId;
+    if (!branchId) {
+      setError('Branch is required.');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const payload = {
+        branch: Number(branchId),
+        plate_number: form.plate_number.trim(),
+        name: form.name.trim() || undefined,
+      };
+      
+      if (editingVehicle) {
+        await ronda.vehicles.update(editingVehicle.id, payload);
+        setVehicles((prev) => prev.map((v) => v.id === editingVehicle.id ? { ...v, ...payload } : v));
+      } else {
+        const created = await ronda.vehicles.create(payload);
+        setVehicles((prev) => [...prev, created]);
+      }
+      
+      setForm({
+        branch: '',
+        plate_number: '',
+        name: '',
+      });
+      setEditingVehicle(null);
+    } catch (e) {
+      const msg = e?.response?.data && typeof e.response.data === 'object'
+        ? JSON.stringify(e.response.data)
+        : e.message || 'Failed to save vehicle';
+      setError(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -88,6 +157,7 @@ export function VehiclesPage() {
                 <th>Plate number</th>
                 <th>Name</th>
                 <th>Branch</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -96,6 +166,21 @@ export function VehiclesPage() {
                   <td>{v.plate_number}</td>
                   <td>{v.name || '—'}</td>
                   <td>{v.branch_name || v.branch}</td>
+                  <td>
+                    <button 
+                      onClick={() => handleEdit(v)} 
+                      className="btn btn-small btn-secondary"
+                      style={{ marginRight: '5px' }}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(v.id)} 
+                      className="btn btn-small btn-danger"
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -103,8 +188,8 @@ export function VehiclesPage() {
         </div>
 
         <div className="vehicles-form-card">
-          <h3>Register vehicle</h3>
-          <form onSubmit={handleSubmit} className="vehicles-form">
+          <h3>{editingVehicle ? 'Edit vehicle' : 'Register vehicle'}</h3>
+          <form onSubmit={handleUpdate} className="vehicles-form">
             {isSuperAdmin && (
               <label>
                 Branch
@@ -135,8 +220,25 @@ export function VehiclesPage() {
             </label>
             {error && <p className="vehicles-error-inline">{error}</p>}
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Register vehicle'}
+              {saving ? 'Saving…' : (editingVehicle ? 'Update vehicle' : 'Register vehicle')}
             </button>
+            {editingVehicle && (
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  setEditingVehicle(null);
+                  setForm({
+                    branch: '',
+                    plate_number: '',
+                    name: '',
+                  });
+                  setError('');
+                }}
+              >
+                Cancel
+              </button>
+            )}
           </form>
         </div>
       </div>

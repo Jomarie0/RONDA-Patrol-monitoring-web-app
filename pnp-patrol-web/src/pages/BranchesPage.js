@@ -34,6 +34,7 @@ export function BranchesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editingBranch, setEditingBranch] = useState(null);
   const [form, setForm] = useState({
     name: '',
     code: '',
@@ -65,6 +66,77 @@ export function BranchesPage() {
       latitude: lat.toFixed(6),
       longitude: lng.toFixed(6),
     }));
+  };
+
+  const handleEdit = (branch) => {
+    setEditingBranch(branch);
+    setForm({
+      name: branch.name,
+      code: branch.code,
+      address: branch.address || '',
+      latitude: branch.latitude || '',
+      longitude: branch.longitude || '',
+      is_main: branch.is_main,
+    });
+    setError('');
+  };
+
+  const handleDelete = async (branchId) => {
+    if (!window.confirm('Are you sure you want to delete this branch?')) return;
+    
+    try {
+      await ronda.branches.remove(branchId);
+      setBranches((prev) => prev.filter((b) => b.id !== branchId));
+      setError('');
+    } catch (e) {
+      setError(e.message || 'Failed to delete branch');
+    }
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!form.name || !form.code) {
+      setError('Name and code are required.');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name,
+        code: form.code,
+        address: form.address || '',
+        is_main: form.is_main,
+        latitude: form.latitude || null,
+        longitude: form.longitude || null,
+      };
+      
+      if (editingBranch) {
+        await ronda.branches.update(editingBranch.id, payload);
+        setBranches((prev) => prev.map((b) => b.id === editingBranch.id ? { ...b, ...payload } : b));
+      } else {
+        const created = await ronda.branches.create(payload);
+        setBranches((prev) => [...prev, created]);
+      }
+      
+      setForm({
+        name: '',
+        code: '',
+        address: '',
+        latitude: '',
+        longitude: '',
+        is_main: false,
+      });
+      setEditingBranch(null);
+    } catch (e) {
+      const msg = e?.response?.data && typeof e.response.data === 'object'
+        ? JSON.stringify(e.response.data)
+        : e.message || 'Failed to save branch';
+      setError(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -131,6 +203,7 @@ export function BranchesPage() {
                 <th>Main</th>
                 <th>Latitude</th>
                 <th>Longitude</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -141,6 +214,21 @@ export function BranchesPage() {
                   <td>{b.is_main ? 'Yes' : 'No'}</td>
                   <td>{b.latitude ?? '—'}</td>
                   <td>{b.longitude ?? '—'}</td>
+                  <td>
+                    <button 
+                      onClick={() => handleEdit(b)} 
+                      className="btn btn-small btn-secondary"
+                      style={{ marginRight: '5px' }}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(b.id)} 
+                      className="btn btn-small btn-danger"
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -148,8 +236,8 @@ export function BranchesPage() {
         </div>
 
         <div className="branches-form-card">
-          <h3>Create branch</h3>
-          <form onSubmit={handleSubmit} className="branches-form">
+          <h3>{editingBranch ? 'Edit branch' : 'Create branch'}</h3>
+          <form onSubmit={handleUpdate} className="branches-form">
             <label>
               Name
               <input
@@ -213,8 +301,28 @@ export function BranchesPage() {
 
             {error && <p className="branches-error-inline">{error}</p>}
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Create branch'}
+              {saving ? 'Saving…' : (editingBranch ? 'Update branch' : 'Create branch')}
             </button>
+            {editingBranch && (
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  setEditingBranch(null);
+                  setForm({
+                    name: '',
+                    code: '',
+                    address: '',
+                    latitude: '',
+                    longitude: '',
+                    is_main: false,
+                  });
+                  setError('');
+                }}
+              >
+                Cancel
+              </button>
+            )}
           </form>
         </div>
       </div>

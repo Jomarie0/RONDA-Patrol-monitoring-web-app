@@ -14,6 +14,7 @@ export function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -41,6 +42,84 @@ export function UsersPage() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEdit = (user) => {
+    setEditingUser(user);
+    setForm({
+      username: user.username,
+      email: user.email || '',
+      password: '',
+      confirmPassword: '',
+      role: user.role,
+      branch: user.branch?.id || '',
+    });
+    setError('');
+  };
+
+  const handleDelete = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    
+    try {
+      await ronda.users.remove(userId);
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setError('');
+    } catch (e) {
+      setError(e.message || 'Failed to delete user');
+    }
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!form.username || !form.role) {
+      setError('Username and role are required.');
+      return;
+    }
+    if (form.password && form.password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const payload = {
+        username: form.username,
+        email: form.email || undefined,
+        password: form.password || undefined,
+        role: form.role,
+        branch: form.branch || null,
+      };
+      
+      if (editingUser) {
+        await ronda.users.update(editingUser.id, payload);
+        setUsers((prev) => prev.map((u) => u.id === editingUser.id ? { ...u, ...payload } : u));
+      } else {
+        const created = await ronda.users.create(payload);
+        setUsers((prev) => [...prev, created]);
+      }
+      
+      setForm({
+        username: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        role: 'DRIVER',
+        branch: '',
+      });
+      setEditingUser(null);
+    } catch (e) {
+      const msg = e?.response?.data && typeof e.response.data === 'object'
+        ? JSON.stringify(e.response.data)
+        : e.message || 'Failed to save user';
+      setError(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -107,6 +186,7 @@ export function UsersPage() {
                 <th>Branch</th>
                 <th>Email</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -117,6 +197,21 @@ export function UsersPage() {
                   <td>{u.branch_name || '—'}</td>
                   <td>{u.email || '—'}</td>
                   <td>{u.is_active ? 'Active' : 'Inactive'}</td>
+                  <td>
+                    <button 
+                      onClick={() => handleEdit(u)} 
+                      className="btn btn-small btn-secondary"
+                      style={{ marginRight: '5px' }}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(u.id)} 
+                      className="btn btn-small btn-danger"
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -124,8 +219,8 @@ export function UsersPage() {
         </div>
 
         <div className="users-form-card">
-          <h3>Create user</h3>
-          <form onSubmit={handleSubmit} className="users-form">
+          <h3>{editingUser ? 'Edit user' : 'Create user'}</h3>
+          <form onSubmit={handleUpdate} className="users-form">
             <label>
               Username
               <input
@@ -194,8 +289,28 @@ export function UsersPage() {
             </label>
             {error && <p className="users-error-inline">{error}</p>}
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Create user'}
+              {saving ? 'Saving…' : (editingUser ? 'Update user' : 'Create user')}
             </button>
+            {editingUser && (
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  setEditingUser(null);
+                  setForm({
+                    username: '',
+                    email: '',
+                    password: '',
+                    confirmPassword: '',
+                    role: 'DRIVER',
+                    branch: '',
+                  });
+                  setError('');
+                }}
+              >
+                Cancel
+              </button>
+            )}
           </form>
         </div>
       </div>

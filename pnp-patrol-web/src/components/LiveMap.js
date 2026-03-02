@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import * as ronda from '../api/ronda';
 import 'leaflet/dist/leaflet.css';
@@ -44,6 +44,65 @@ function FixLeafletIcons() {
   return null;
 }
 
+function MapCenter({ center }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) map.setView(center, map.getZoom());
+  }, [map, center]);
+  return null;
+}
+
+function MapZoomToDriver({ driverName, locations }) {
+  const map = useMap();
+  useEffect(() => {
+    if (driverName && locations.length > 0) {
+      const driver = locations.find(loc => loc.driver === driverName);
+      if (driver && driver.latitude && driver.longitude) {
+        map.setView([driver.latitude, driver.longitude], 15);
+      }
+    }
+  }, [map, driverName, locations]);
+  return null;
+}
+
+// Persistent trail component that maintains state across updates
+function PersistentTrail({ sessionId, recentPoints }) {
+  const [trail, setTrail] = useState([]);
+  const polylineRef = useRef(null);
+
+  useEffect(() => {
+    if (!recentPoints || recentPoints.length === 0) return;
+
+    // Convert to [lat, lng] format
+    const newPoints = recentPoints.map(p => [p.latitude, p.longitude]);
+    
+    // Check if we have new points to append
+    if (trail.length === 0) {
+      // First time, set the entire trail
+      setTrail(newPoints);
+    } else {
+      // Only update if we have more points than before
+      if (newPoints.length > trail.length) {
+        setTrail(newPoints);
+      }
+    }
+  }, [recentPoints, trail.length]);
+
+  return (
+    <>
+      {trail.length > 1 && (
+        <Polyline
+          ref={polylineRef}
+          positions={trail}
+          color="#ff6b35"
+          weight={4}
+          opacity={0.8}
+        />
+      )}
+    </>
+  );
+}
+
 function LiveMarkers({ locations, branchFilter }) {
   const filtered = branchFilter
     ? locations.filter((l) => l.branch === branchFilter)
@@ -70,22 +129,13 @@ function LiveMarkers({ locations, branchFilter }) {
           const offset = index * 0.0001;
           const position = [lat + offset, lng + offset];
           
-          // Draw trail if we have recent_points
-          const trailPositions = loc.recent_points && loc.recent_points.length > 1
-            ? loc.recent_points.map(p => [p.latitude, p.longitude])
-            : [];
-          
           return (
             <React.Fragment key={`${loc.session_id}-${index}`}>
-              {/* Trail line */}
-              {trailPositions.length > 1 && (
-                <Polyline
-                  positions={trailPositions}
-                  color="#ff6b35"
-                  weight={4}
-                  opacity={0.8}
-                />
-              )}
+              {/* Persistent trail that maintains state */}
+              <PersistentTrail 
+                sessionId={loc.session_id} 
+                recentPoints={loc.recent_points || []}
+              />
               
               {/* Current position marker */}
               <Marker position={position}>
@@ -127,27 +177,6 @@ function LiveMarkers({ locations, branchFilter }) {
       })}
     </>
   );
-}
-
-function MapCenter({ center }) {
-  const map = useMap();
-  useEffect(() => {
-    if (center) map.setView(center, map.getZoom());
-  }, [map, center]);
-  return null;
-}
-
-function MapZoomToDriver({ driverName, locations }) {
-  const map = useMap();
-  useEffect(() => {
-    if (driverName && locations.length > 0) {
-      const driver = locations.find(loc => loc.driver === driverName);
-      if (driver && driver.latitude && driver.longitude) {
-        map.setView([driver.latitude, driver.longitude], 15);
-      }
-    }
-  }, [map, driverName, locations]);
-  return null;
 }
 
 export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {

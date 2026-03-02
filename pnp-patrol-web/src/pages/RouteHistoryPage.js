@@ -39,6 +39,7 @@ export function RouteHistoryPage() {
   const [gpsLogs, setGpsLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadSessions = useCallback(() => {
     ronda.sessions
@@ -47,6 +48,25 @@ export function RouteHistoryPage() {
       .catch((e) => setError(e.message || 'Failed to load sessions'))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDeleteSession = async (sessionId) => {
+    if (!window.confirm('Are you sure you want to delete this session and all its GPS data?')) return;
+    
+    setDeleting(true);
+    try {
+      await ronda.sessions.remove(sessionId);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      if (selectedId === sessionId) {
+        setSelectedId(null);
+        setGpsLogs([]);
+      }
+      setError('');
+    } catch (e) {
+      setError(e.message || 'Failed to delete session');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     loadSessions();
@@ -92,6 +112,16 @@ export function RouteHistoryPage() {
           </select>
           {selectedId && (
             <p className="route-points">{gpsLogs.length} GPS point(s)</p>
+          )}
+          {selectedId && (
+            <button 
+              onClick={() => handleDeleteSession(selectedId)} 
+              className="btn btn-small btn-danger"
+              disabled={deleting}
+              style={{ marginTop: '10px' }}
+            >
+              {deleting ? 'Deleting…' : 'Delete Session'}
+            </button>
           )}
         </div>
         <div className="route-map-wrap">

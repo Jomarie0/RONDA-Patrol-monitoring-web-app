@@ -12,6 +12,8 @@ export const branches = {
   list: () => api.get('/branches/').then((r) => r.data),
   get: (id) => api.get(`/branches/${id}/`).then((r) => r.data),
   create: (payload) => api.post('/branches/', payload).then((r) => r.data),
+  update: (id, payload) => api.patch(`/branches/${id}/`, payload).then((r) => r.data),
+  remove: (id) => api.delete(`/branches/${id}/`).then((r) => r.data),
 };
 
 export const users = {
@@ -24,12 +26,15 @@ export const users = {
 export const vehicles = {
   list: () => api.get('/vehicles/').then((r) => r.data),
   create: (payload) => api.post('/vehicles/', payload).then((r) => r.data),
+  update: (id, payload) => api.patch(`/vehicles/${id}/`, payload).then((r) => r.data),
+  remove: (id) => api.delete(`/vehicles/${id}/`).then((r) => r.data),
 };
 
 export const sessions = {
   list: (params) => api.get('/sessions/', { params }).then((r) => r.data),
   get: (id) => api.get(`/sessions/${id}/`).then((r) => r.data),
   live: () => api.get('/sessions/live/').then((r) => r.data),
+  remove: (id) => api.delete(`/sessions/${id}/`).then((r) => r.data),
 };
 
 export const gpsLogs = {
