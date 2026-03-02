@@ -16,7 +16,8 @@ import { ronda } from '@/lib/api';
 import { pushToQueue, flushQueue, getQueue } from '@/lib/gps-queue';
 import { useRouter } from 'expo-router';
 
-const GPS_INTERVAL_MS = 60000; // 60 seconds
+const GPS_INTERVAL_MS = 5000; // 5 seconds for continuous tracking
+const MIN_DISTANCE_METERS = 5; // Minimum movement to trigger update
 
 type Session = {
   id: number;
@@ -47,6 +48,7 @@ export default function HomeScreen() {
   const [lastGpsTime, setLastGpsTime] = useState<string | null>(null);
   const [queuedCount, setQueuedCount] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const watchRef = useRef<Location.LocationSubscription | null>(null);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -103,7 +105,7 @@ export default function HomeScreen() {
     if (status !== 'granted') return;
     try {
       const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
       });
       const ts = new Date().toISOString();
       await sendOrQueueGps(
@@ -117,20 +119,59 @@ export default function HomeScreen() {
     }
   }, [session, sendOrQueueGps]);
 
+  const startContinuousTracking = useCallback(async () => {
+    if (!session?.is_active) return;
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status !== 'granted') return;
+
+    try {
+      // Start with current position
+      await captureAndSendGps();
+
+      // Then start continuous tracking
+      watchRef.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: GPS_INTERVAL_MS,
+          distanceInterval: MIN_DISTANCE_METERS,
+        },
+        async (location) => {
+          if (!session?.is_active) return;
+          const ts = new Date().toISOString();
+          await sendOrQueueGps(
+            session.id,
+            location.coords.latitude,
+            location.coords.longitude,
+            ts
+          );
+        }
+      );
+    } catch (error) {
+      console.error('Failed to start GPS tracking:', error);
+      // Fallback to interval-based tracking
+      intervalRef.current = setInterval(captureAndSendGps, GPS_INTERVAL_MS);
+    }
+  }, [session, captureAndSendGps, sendOrQueueGps]);
+
+  const stopTracking = useCallback(() => {
+    if (watchRef.current) {
+      watchRef.current.remove();
+      watchRef.current = null;
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!session?.is_active) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      stopTracking();
       return;
     }
-    captureAndSendGps();
-    intervalRef.current = setInterval(captureAndSendGps, GPS_INTERVAL_MS);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [session?.id, session?.is_active, captureAndSendGps]);
+    startContinuousTracking();
+    return () => stopTracking();
+  }, [session?.id, session?.is_active, startContinuousTracking, stopTracking]);
 
   useEffect(() => {
     (async () => {
@@ -242,7 +283,7 @@ export default function HomeScreen() {
         </Text>
         {session?.is_active && (
           <Text style={styles.gpsInfo}>
-            GPS every 60s. Last: {lastGpsTime ? new Date(lastGpsTime).toLocaleTimeString() : '—'}
+            Continuous GPS tracking. Last: {lastGpsTime ? new Date(lastGpsTime).toLocaleTimeString() : '—'}
           </Text>
         )}
         {queuedCount > 0 && (
