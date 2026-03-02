@@ -84,7 +84,6 @@ function PersistentTrail({ sessionId, recentPoints }) {
     } else {
       // Only update if we have more points than before
       if (newPoints.length > trail.length) {
-        const newPointsCount = newPoints.length - trail.length;
         setTrail(newPoints);
       }
     }
@@ -219,7 +218,7 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
     } finally {
       setLoading(false);
     }
-  }, [setLocations, setAllSessions, setLastUpdate, setError, setLoading, REFRESH_MS, SMART_POLL_INTERVAL]);
+  }, [setLocations, setAllSessions, setLastUpdate, setError, setLoading]);
 
   useEffect(() => {
     let currentInterval = REFRESH_MS;
