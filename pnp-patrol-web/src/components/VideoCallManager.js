@@ -22,7 +22,7 @@ export const VideoCallProvider = ({ children, currentUser }) => {
 
     // Initialize WebSocket connection
     const token = localStorage.getItem('access_token');
-    const wsUrl = `ws://192.168.1.18:8000/ws/call/?token=${token}`;
+    const wsUrl = `ws://192.168.1.68:8000/ws/call/?token=${token}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {

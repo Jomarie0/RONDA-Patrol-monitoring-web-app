@@ -38,7 +38,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\ren andrea camara\Music\Programming\RONDA-Patrol-monitoring-web-app\venv"
+VIRTUAL_ENV="F:\capstone103\Ronda_Patrol_monitoring\RONDA-Patrol-monitoring-web-app\venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

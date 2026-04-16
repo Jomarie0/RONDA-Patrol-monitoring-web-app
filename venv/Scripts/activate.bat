@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=C:\Users\ren andrea camara\Music\Programming\RONDA-Patrol-monitoring-web-app\venv
+set VIRTUAL_ENV=F:\capstone103\Ronda_Patrol_monitoring\RONDA-Patrol-monitoring-web-app\venv
 
 if not defined PROMPT set PROMPT=$P$G
 

@@ -20,7 +20,7 @@ const getApiBaseUrl = () => {
       return envUrl; // Keep as is for web/simulator
     }
     
-    return envUrl || 'http://192.168.1.10:8000/api';
+    return envUrl || 'http://192.168.1.68:8000/api';
   }
   
   // For development builds or production
