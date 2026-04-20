@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
 import { api } from '@/lib/api';
 import { databaseService, PhotoRecord } from './database';
 
@@ -145,16 +146,30 @@ class PhotoService {
       }
       
       // Add each photo
-      photos.forEach((photo, index) => {
+      for (const [index, photo] of photos.entries()) {
         // Create a unique key for each photo
         const photoKey = `photos[${index}]`;
         
-        // Add photo file
-        formData.append(`${photoKey}[image]`, {
-          uri: photo.uri,
-          type: 'image/jpeg',
-          name: `photo_${photo.shotType}_${Date.now()}.jpg`,
-        } as any);
+        // Handle photo file differently for web vs native
+        if (Platform.OS === 'web') {
+          // On web, fetch the blob and create a File object
+          try {
+            const response = await fetch(photo.uri);
+            const blob = await response.blob();
+            const file = new File([blob], `photo_${photo.shotType}_${Date.now()}.jpg`, { type: 'image/jpeg' });
+            formData.append(`${photoKey}[image]`, file);
+          } catch (error) {
+            console.error(`Failed to process photo ${index} for web upload:`, error);
+            throw new Error(`Failed to process photo ${index}`);
+          }
+        } else {
+          // On native, use the existing approach
+          formData.append(`${photoKey}[image]`, {
+            uri: photo.uri,
+            type: 'image/jpeg',
+            name: `photo_${photo.shotType}_${Date.now()}.jpg`,
+          } as any);
+        }
         
         // Add photo metadata
         formData.append(`${photoKey}[shot_type]`, photo.shotType);
@@ -168,7 +183,7 @@ class PhotoService {
           formData.append(`${photoKey}[notes]`, photo.notes);
         }
         formData.append(`${photoKey}[captured_at]`, photo.capturedAt);
-      });
+      }
       
       // Make API request
       const response = await api.post('/vehicle-photos/submissions/batch_upload/', formData, {
@@ -178,10 +193,14 @@ class PhotoService {
         timeout: 30000, // 30 seconds timeout for photo upload
       });
       
-      console.log('✅ Photos uploaded successfully:', response.data);
+      console.log(' Photos uploaded successfully:', response.data);
       
-      // Save to local history as backup
-      await this.saveToHistory(photos, vehicleId, photoType, shiftId);
+      // Save to local history as backup (don't fail upload if this fails)
+      try {
+        await this.saveToHistory(photos, vehicleId, photoType, shiftId);
+      } catch (error) {
+        console.error('⚠️ Failed to save to local history, but upload succeeded:', error);
+      }
       
       return response.data;
       
@@ -441,7 +460,11 @@ class PhotoService {
       }
       
       console.log(`📸 Successfully saved photo group ${groupId} with ${photos.length} photos to SQLite database`);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.message && error.message.includes('QuotaExceededError') && Platform.OS === 'web') {
+        console.warn('⚠️ Web storage quota exceeded; skipping local history save to allow upload to proceed.');
+        return;
+      }
       console.error('❌ Error saving photo group to SQLite database:', error);
       throw error;
     }

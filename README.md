@@ -37,11 +37,11 @@ npm start
 
 The mobile app now supports easy switching between local development and production:
 
-- ✅ **Environment files**: `.env.development` & `.env.production`
-- ✅ **One-command switching**: `npm run start:dev` or `npm run start:prod`
-- ✅ **Automatic detection**: Expo Go vs development builds
-- ✅ **Cross-platform**: Windows, Mac, Linux compatible
-- ✅ **Console logging**: Shows active API URL
+-  **Environment files**: `.env.development` & `.env.production`
+-  **One-command switching**: `npm run start:dev` or `npm run start:prod`
+-  **Automatic detection**: Expo Go vs development builds
+-  **Cross-platform**: Windows, Mac, Linux compatible
+-  **Console logging**: Shows active API URL
 
 See [Dynamic API URL Setup](#-dynamic-api-url-setup) section for details.
 
@@ -49,7 +49,7 @@ See [Dynamic API URL Setup](#-dynamic-api-url-setup) section for details.
 
 ## 🚀 **Phase 1: Smart GPS & Robust Error Handling (COMPLETED)**
 
-### ✅ **Major Improvements**
+###  **Major Improvements**
 - **📱 Adaptive GPS Intervals** - 5s (moving) to 30s (stationary) based on speed
 - **⚡ Smart Polling** - 5s (active drivers) to 15s (no active drivers) 
 - **🛡️ Robust Error Handling** - Graceful failures across mobile, web, and backend
@@ -418,11 +418,11 @@ EXPO_PUBLIC_API_URL=http://192.168.x.x:8000/api npx expo start
 ```
 
 #### **Features**
-- ✅ **Automatic detection** of Expo Go vs development build
-- ✅ **Environment switching** with simple commands
-- ✅ **Console logging** shows which API URL is active
-- ✅ **Fallback URLs** if environment variables missing
-- ✅ **Windows/Mac/Linux compatible** scripts
+-  **Automatic detection** of Expo Go vs development build
+-  **Environment switching** with simple commands
+-  **Console logging** shows which API URL is active
+-  **Fallback URLs** if environment variables missing
+-  **Windows/Mac/Linux compatible** scripts
 
 #### **Manual Environment Switching**
 ```bash

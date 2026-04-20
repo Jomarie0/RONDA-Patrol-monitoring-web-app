@@ -75,7 +75,7 @@ def custom_exception_handler(exc, context):
                     is_active=True
                 ).first()
                 if active_session:
-                    print(f"✅ [Auto-Fix] Found active session {active_session.id}, updating request data")
+                    print(f" [Auto-Fix] Found active session {active_session.id}, updating request data")
                     # Update the request data with the correct session
                     if hasattr(request, 'data') and request.data:
                         request.data['session'] = active_session.id

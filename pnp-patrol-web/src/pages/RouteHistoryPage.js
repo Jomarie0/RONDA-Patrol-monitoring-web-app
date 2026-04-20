@@ -9,7 +9,7 @@ import './RouteHistoryPage.css';
 if (typeof L === 'undefined') {
   console.error('❌ Leaflet not loaded - check imports');
 } else {
-  console.log('✅ Leaflet loaded successfully');
+  console.log(' Leaflet loaded successfully');
 }
 
 // Custom marker icons for start and end points
@@ -333,7 +333,7 @@ export function RouteHistoryPage() {
                   onClick={isPlaying ? pausePlayback : startPlayback}
                   disabled={!routeData?.route_points || currentIndex >= (routeData.route_points.length - 1)}
                 >
-                  {isPlaying ? '⏸️ Pause' : (!routeData?.route_points || currentIndex >= routeData.route_points.length - 1) ? '✅ Done' : '▶️ Play'}
+                  {isPlaying ? '⏸️ Pause' : (!routeData?.route_points || currentIndex >= routeData.route_points.length - 1) ? ' Done' : '▶️ Play'}
                 </button>
                 <button className="playback-btn" onClick={resetPlayback}>
                   ⏹️ Reset
@@ -342,7 +342,7 @@ export function RouteHistoryPage() {
                   className={`playback-btn toggle-btn ${showSpeedColors ? 'active' : ''}`}
                   onClick={() => setShowSpeedColors(!showSpeedColors)}
                 >
-                  🎨 Speed Colors
+                  Speed Colors
                 </button>
               </div>
               

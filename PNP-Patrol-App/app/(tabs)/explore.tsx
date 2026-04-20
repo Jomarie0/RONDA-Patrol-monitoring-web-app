@@ -129,7 +129,7 @@ export default function PhotoHistoryScreen() {
           <Text style={styles.uploadStatus}>📤 Queued for upload</Text>
         )}
         {item.uploaded === true && (
-          <Text style={styles.uploadStatusUploaded}>✅ Uploaded</Text>
+          <Text style={styles.uploadStatusUploaded}> Uploaded</Text>
         )}
         {item.latitude && item.longitude && (
           <Text style={styles.location}>
@@ -160,7 +160,7 @@ export default function PhotoHistoryScreen() {
             <Text style={styles.uploadStatus}>📤 Queued for upload</Text>
           )}
           {item.uploaded === true && (
-            <Text style={styles.uploadStatusUploaded}>✅ Uploaded</Text>
+            <Text style={styles.uploadStatusUploaded}> Uploaded</Text>
           )}
         </View>
         <Ionicons name="chevron-forward" size={20} color="#ccc" />

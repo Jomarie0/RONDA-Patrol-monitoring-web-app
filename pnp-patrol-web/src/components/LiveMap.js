@@ -360,7 +360,7 @@ function LiveMarkers({ locations, branchFilter, userRole, onPing, pinging, showT
                         {pingStatus === 'RESPONDED' ? (
                           <>
                             <span className="ping-badge success">Responded</span><br />
-                            {pingResponse === 'YES' && '✅ Driver is fine'}
+                            {pingResponse === 'YES' && ' Driver is fine'}
                             {pingResponse === 'NO' && '❌ Driver needs assistance'}
                             {pingResponse === 'NEED_ASSISTANCE' && '🚨 Emergency help needed'}
                             {loc.recent_ping.responded_at && (
@@ -673,7 +673,7 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
                   <div className="driver-ping-status">
                     {pingStatus === 'RESPONDED' ? (
                       <span className="ping-badge success">
-                        {pingResponse === 'YES' && '✅ Fine'}
+                        {pingResponse === 'YES' && ' Fine'}
                         {pingResponse === 'NO' && '❌ Needs help'}
                         {pingResponse === 'NEED_ASSISTANCE' && '🚨 Emergency'}
                       </span>

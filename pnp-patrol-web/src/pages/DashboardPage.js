@@ -97,7 +97,7 @@ export function DashboardPage() {
     
     if (ping.status === 'RESPONDED') {
       const responseText = {
-        'YES': '✅ Driver is fine',
+        'YES': ' Driver is fine',
         'NO': '❌ Driver needs assistance',
         'NEED_ASSISTANCE': '🚨 Emergency help needed'
       }[ping.response] || `Responded: ${ping.response}`;
@@ -165,7 +165,7 @@ export function DashboardPage() {
         {/* Logout Messages */}
         {logoutMessage && (
           <div className="logout-success">
-            ✅ {logoutMessage}
+             {logoutMessage}
           </div>
         )}
         {logoutError && (

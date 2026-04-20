@@ -209,7 +209,7 @@ class GPSLogSerializer(serializers.ModelSerializer):
                     is_active=True
                 ).first()
                 if active_session:
-                    print(f"✅ [Serializer] Found active session {active_session.id} for user {request.user.username}")
+                    print(f" [Serializer] Found active session {active_session.id} for user {request.user.username}")
                     return active_session
                 else:
                     raise serializers.ValidationError('No active session found for this driver.')
@@ -219,7 +219,7 @@ class GPSLogSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('You can only add GPS logs to your own session.')
         if not value.is_active:
             raise serializers.ValidationError('GPS can only be recorded for an active session.')
-        print(f"✅ [Serializer] Session validation passed")
+        print(f" [Serializer] Session validation passed")
         return value
 
     def validate_accuracy(self, value):
