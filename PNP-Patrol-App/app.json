@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "PNP-Patrol-App",
-    "slug": "PNP-Patrol-App",
+    "slug": "pnp-patrol-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -67,9 +67,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "19009695-2cd7-42ff-800d-e0760835657b"
+        "projectId": "d59f4ba0-72e1-4c70-804b-90ab1ca9c14c"
       }
     },
-    "owner": "adlerr"
+    "owner": "jomarie_roperez"
   }
 }
