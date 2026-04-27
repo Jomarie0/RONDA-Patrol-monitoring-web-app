@@ -10,7 +10,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import User, PushToken
+from .models import User, PushToken, Role
+from django.db.models import Q
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 # Expo Push Notification API URL
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
@@ -240,3 +243,33 @@ def broadcast_notification(user_ids, title, body, data=None):
             results['errors'].append(f"User {user_id}: {message}")
     
     return results
+
+
+def broadcast_emergency_alert(driver, title, body, data=None, alert_id=None):
+    """Send emergency alert to all relevant admin users via push and websocket."""
+    admins = User.objects.filter(
+        Q(role=Role.SUPER_ADMIN) |
+        Q(role=Role.BRANCH_ADMIN, branch=driver.branch)
+    )
+    admin_ids = list(admins.values_list('id', flat=True))
+
+    if admin_ids:
+        broadcast_notification(admin_ids, title, body, data)
+        channel_layer = get_channel_layer()
+        event = {
+            'type': 'emergency_alert',
+            'alert_id': alert_id,
+            'driver_id': driver.id,
+            'driver_username': driver.username,
+            'branch_id': getattr(driver.branch, 'id', None),
+            'message': body,
+            'data': data or {},
+        }
+
+        for admin_id in admin_ids:
+            try:
+                async_to_sync(channel_layer.group_send)(f'user_{admin_id}', event)
+            except Exception as exc:
+                print(f"Failed to send websocket emergency alert to admin {admin_id}: {exc}")
+
+    return {'admin_count': len(admin_ids), 'admin_ids': admin_ids}

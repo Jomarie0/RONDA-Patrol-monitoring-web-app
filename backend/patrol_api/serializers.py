@@ -7,7 +7,7 @@ from rest_framework import serializers
 from decimal import Decimal, ROUND_HALF_UP
 from django.contrib.auth.password_validation import validate_password
 
-from .models import Branch, User, Vehicle, DriverSession, GPSLog, IncidentReport, PingRequest, PingStatus, VideoCall
+from .models import Branch, User, Vehicle, DriverSession, GPSLog, IncidentReport, PingRequest, PingStatus, VideoCall, EmergencyAlert
 from .models import Role, CallStatus
 
 
@@ -305,6 +305,27 @@ class PingRequestSerializer(serializers.ModelSerializer):
             'response_location_lat', 'response_location_lon', 'response_time_seconds'
         ]
         read_only_fields = ['sent_at', 'responded_at', 'response_time_seconds']
+
+
+class EmergencyAlertSerializer(serializers.ModelSerializer):
+    """Emergency alert read serializer."""
+    driver_name = serializers.CharField(source='driver.username', read_only=True)
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+
+    class Meta:
+        model = EmergencyAlert
+        fields = [
+            'id', 'driver', 'driver_name', 'branch', 'branch_name',
+            'message', 'latitude', 'longitude', 'created_at',
+        ]
+        read_only_fields = ['id', 'driver', 'driver_name', 'branch', 'branch_name', 'created_at']
+
+
+class EmergencyAlertCreateSerializer(serializers.Serializer):
+    """Serializer for creating an emergency alert."""
+    message = serializers.CharField(required=False, allow_blank=True, default='Emergency help requested')
+    latitude = QuantizedDecimalField(max_digits=11, decimal_places=8, required=False, allow_null=True)
+    longitude = QuantizedDecimalField(max_digits=12, decimal_places=8, required=False, allow_null=True)
 
 
 class PingSendSerializer(serializers.Serializer):

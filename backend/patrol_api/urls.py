@@ -27,6 +27,7 @@ from .views import (
     PingSendView,
     PingRespondView,
     PingActiveView,
+    EmergencyAlertViewSet,
     VideoCallViewSet,
 )
 from .notifications import (
@@ -44,6 +45,7 @@ router.register(r'sessions', DriverSessionViewSet, basename='session')
 router.register(r'gps-logs', GPSLogViewSet, basename='gpslog')
 router.register(r'incidents', IncidentReportViewSet, basename='incident')
 router.register(r'video-calls', VideoCallViewSet, basename='videocall')
+router.register(r'emergency-alerts', EmergencyAlertViewSet, basename='emergencyalert')
 
 class RondaTokenObtainPairView(TokenObtainPairView):
     serializer_class = RondaTokenObtainPairSerializer

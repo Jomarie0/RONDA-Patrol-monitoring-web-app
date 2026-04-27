@@ -58,13 +58,21 @@ function getDriverColorIndex(driverName) {
 }
 
 // Create custom marker icon with driver initials
-function createDriverIcon(driverName, vehiclePlate) {
+function createDriverIcon(driverName, vehiclePlate, accuracy) {
   const colorIndex = getDriverColorIndex(driverName);
   const colors = DRIVER_COLORS[colorIndex];
   const initials = getDriverInitials(driverName);
   const vehicleEmoji = getVehicleIcon(vehiclePlate);
+  const borderColor = accuracy == null
+    ? colors.border
+    : accuracy > 50
+      ? '#ff9800'
+      : accuracy > 20
+        ? '#fdd835'
+        : colors.border;
+  const background = accuracy != null && accuracy > 50 ? '#fff3e0' : colors.bg;
   
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48"><text x="20" y="14" text-anchor="middle" font-size="16">${vehicleEmoji}</text><circle cx="20" cy="32" r="14" fill="${colors.bg}" stroke="${colors.border}" stroke-width="3"/><text x="20" y="37" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="Arial, sans-serif">${initials}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48"><text x="20" y="14" text-anchor="middle" font-size="16">${vehicleEmoji}</text><circle cx="20" cy="32" r="14" fill="${background}" stroke="${borderColor}" stroke-width="3"/><text x="20" y="37" text-anchor="middle" fill="${accuracy != null && accuracy > 50 ? '#000' : 'white'}" font-size="11" font-weight="bold" font-family="Arial, sans-serif">${initials}</text></svg>`;
   
   const svgUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
   
@@ -329,7 +337,7 @@ function LiveMarkers({ locations, branchFilter, userRole, onPing, pinging, showT
               {/* Current position marker */}
               <Marker 
                 position={position}
-                icon={createDriverIcon(loc.driver, loc.vehicle)}
+                icon={createDriverIcon(loc.driver, loc.vehicle, loc.accuracy)}
               >
                 <Popup>
                   <div className="marker-popup">
@@ -340,6 +348,22 @@ function LiveMarkers({ locations, branchFilter, userRole, onPing, pinging, showT
                       <strong>Coordinates:</strong><br />
                       Lat: {loc.latitude?.toFixed(6) || 'N/A'}<br />
                       Lng: {loc.longitude?.toFixed(6) || 'N/A'}<br />
+                      {loc.accuracy != null && (
+                        <>
+                          <br />Accuracy: {loc.accuracy.toFixed(1)} m
+                          {loc.accuracy > 50 ? ' ⚠️ Poor accuracy' : loc.accuracy > 20 ? ' ⚠️ Fair accuracy' : ' ✅ Good accuracy'}
+                        </>
+                      )}
+                      {loc.rejection_reason && (
+                        <>
+                          <br />Reason: {loc.rejection_reason}
+                        </>
+                      )}
+                      {loc.rejected_count > 0 && (
+                        <>
+                          <br />Rejected GPS points: {loc.rejected_count}
+                        </>
+                      )}
                       {loc.recent_points && loc.recent_points.length > 0 && (
                         <>
                           <br />Trail points: {loc.recent_points.length}

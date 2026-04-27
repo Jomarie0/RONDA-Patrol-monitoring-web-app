@@ -231,6 +231,37 @@ class PingRequest(models.Model):
         super().save(*args, **kwargs)
 
 
+class EmergencyAlert(models.Model):
+    """Driver-originated emergency alert record."""
+    driver = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='emergency_alerts',
+        limit_choices_to={'role': 'DRIVER'}
+    )
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.PROTECT,
+        related_name='emergency_alerts',
+        null=True,
+        blank=True
+    )
+    message = models.CharField(max_length=512, default='Emergency help requested')
+    latitude = models.DecimalField(max_digits=11, decimal_places=8, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=12, decimal_places=8, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['driver', 'created_at']),
+            models.Index(fields=['branch']),
+        ]
+
+    def __str__(self):
+        return f"EmergencyAlert {self.id} from {self.driver.username}"
+
+
 class PushToken(models.Model):
     """Push notification tokens for mobile devices"""
     user = models.ForeignKey(

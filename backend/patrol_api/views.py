@@ -17,8 +17,8 @@ from rest_framework.views import APIView, exception_handler
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated as DRFIsAuthenticated
 
-from .models import Branch, User, Vehicle, DriverSession, GPSLog, IncidentReport, PingRequest, PingStatus, VideoCall
-from .notifications import send_ping_notification
+from .models import Branch, User, Vehicle, DriverSession, GPSLog, IncidentReport, PingRequest, PingStatus, VideoCall, EmergencyAlert
+from .notifications import send_ping_notification, broadcast_emergency_alert
 from .gps_validation import gps_validator, GPSPoint  # Import GPS validation utilities
 from .serializers import (
     BranchSerializer,
@@ -34,6 +34,8 @@ from .serializers import (
     PingResponseSerializer,
     VideoCallSerializer,
     VideoCallInitiateSerializer,
+    EmergencyAlertSerializer,
+    EmergencyAlertCreateSerializer,
     UserLogoutSerializer,
 )
 from .permissions import (
@@ -588,8 +590,11 @@ class LiveLocationsView(APIView):
                         'latitude': float(last_gps.latitude) if last_gps else None,
                         'longitude': float(last_gps.longitude) if last_gps else None,
                         'timestamp': last_gps.timestamp.isoformat() if last_gps else None,
+                        'accuracy': float(last_gps.accuracy) if last_gps and hasattr(last_gps, 'accuracy') and last_gps.accuracy else None,
+                        'rejection_reason': last_gps.rejection_reason if last_gps and hasattr(last_gps, 'rejection_reason') else None,
                         'recent_points': valid_gps_points,
                         'total_points': len(valid_gps_points),
+                        'rejected_count': rejected_count,
                         'recent_ping': ping_info,
                     })
 
@@ -1265,6 +1270,31 @@ class PingRespondView(APIView):
                 ping.response_location_lon = longitude
             ping.save()
 
+            if response == 'NEED_ASSISTANCE':
+                try:
+                    alert = EmergencyAlert.objects.create(
+                        driver=request.user,
+                        branch=request.user.branch,
+                        message='Driver marked ping as emergency help needed.',
+                        latitude=latitude,
+                        longitude=longitude,
+                    )
+                    broadcast_emergency_alert(
+                        request.user,
+                        title='🚨 Emergency Help Requested',
+                        body=f'{request.user.username} needs emergency assistance.',
+                        data={
+                            'type': 'emergency_alert',
+                            'alert_id': alert.id,
+                            'driver_id': request.user.id,
+                            'ping_id': ping.id,
+                            'branch_id': request.user.branch_id,
+                        },
+                        alert_id=alert.id,
+                    )
+                except Exception as exc:
+                    print(f'Failed to broadcast emergency alert from ping response: {exc}')
+
             return Response(
                 {'message': 'Response recorded successfully.'},
                 status=status.HTTP_200_OK
@@ -1293,6 +1323,60 @@ class PingActiveView(APIView):
 
         serializer = PingRequestSerializer(pings, many=True)
         return Response(serializer.data)
+
+
+class EmergencyAlertViewSet(viewsets.ModelViewSet):
+    """Emergency alert reporting for drivers and admin monitoring."""
+    serializer_class = EmergencyAlertSerializer
+    permission_classes = [DRFIsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = EmergencyAlert.objects.all().select_related('driver', 'branch')
+        if user.role == 'SUPER_ADMIN':
+            return qs
+        if user.role == 'BRANCH_ADMIN' and user.branch_id:
+            return qs.filter(branch_id=user.branch_id)
+        if user.role == 'DRIVER':
+            return qs.filter(driver=user)
+        return qs.none()
+
+    def create(self, request):
+        if request.user.role != 'DRIVER':
+            return Response(
+                {'detail': 'Only drivers can raise emergency alerts.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = EmergencyAlertCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            alert = EmergencyAlert.objects.create(
+                driver=request.user,
+                branch=request.user.branch,
+                message=serializer.validated_data.get('message', 'Emergency help requested'),
+                latitude=serializer.validated_data.get('latitude'),
+                longitude=serializer.validated_data.get('longitude'),
+            )
+
+            try:
+                broadcast_emergency_alert(
+                    request.user,
+                    title='🚨 Driver Emergency Alert',
+                    body=f'{request.user.username} requests emergency help.',
+                    data={
+                        'type': 'emergency_alert',
+                        'alert_id': alert.id,
+                        'driver_id': request.user.id,
+                        'branch_id': request.user.branch_id,
+                    },
+                    alert_id=alert.id,
+                )
+            except Exception as e:
+                print(f"Failed to broadcast emergency alert: {e}")
+
+            return Response(EmergencyAlertSerializer(alert).data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ---------- Video Call ----------
