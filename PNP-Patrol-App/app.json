@@ -3,7 +3,7 @@
     "name": "PNP-Patrol-App",
     "slug": "pnp-patrol-app",
     "version": "1.0.0",
-    "sdkVersion": "50.0.0",
+    "sdkVersion": "52.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pnppatrolapp",
