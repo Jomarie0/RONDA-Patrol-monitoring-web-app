@@ -58,7 +58,8 @@
           "mode": "production",
           "useFirebase": false
         }
-      ]
+      ],
+      "react-native-maps"
     ],
     "experiments": {
       "typedRoutes": true,
