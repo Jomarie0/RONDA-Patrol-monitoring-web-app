@@ -1,7 +1,7 @@
 {
   "name": "pnp-patrol-app",
   "main": "expo-router/entry",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "scripts": {
     "start": "expo start",
     "start:dev": "copy .env.development .env && expo start --clear",
