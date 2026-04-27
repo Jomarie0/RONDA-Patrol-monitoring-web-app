@@ -2,6 +2,7 @@
  * R.O.N.D.A. Driver App — Push Notification Service
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { ronda } from './api';
 import Constants from 'expo-constants';
 
@@ -131,6 +132,12 @@ export async function registerPushToken(userId?: number): Promise<void> {
 }
 
 export function setupNotificationListener(): () => void {
+  // Skip Expo notifications listener on web because it is not fully supported there
+  if (Platform.OS === 'web') {
+    console.log('⚠️ Expo notifications listeners are not supported on web - skipping listener setup');
+    return () => {};
+  }
+
   // Check if running in Expo Go - push notifications not supported
   if (!Notifications) {
     console.log('⚠️ Push notifications not supported in Expo Go - skipping listener setup');

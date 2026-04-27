@@ -396,6 +396,6 @@ const VideoCallScreen = ({ route, navigation }) => {
 // export default VideoCallScreen;
 // */
 
-// // Dummy export to prevent import errors
-// const VideoCallScreen = () => null;
-// export default VideoCallScreen;
+// Dummy export to prevent import errors
+const VideoCallScreen = () => null;
+export default VideoCallScreen;

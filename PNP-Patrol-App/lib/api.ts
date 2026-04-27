@@ -20,7 +20,7 @@ const getApiBaseUrl = () => {
       return envUrl; // Keep as is for web/simulator
     }
     
-    return envUrl || 'http://192.168.1.10:8000/api';
+    return envUrl || 'http://192.168.1.108:8000/api';
   }
   
   // For development builds or production
@@ -208,5 +208,9 @@ export const ronda = {
       api.post('/notifications/register/', { push_token: token }).then((r) => r.data),
     unregisterToken: (token: string) =>
       api.post('/notifications/unregister/', { push_token: token }).then((r) => r.data),
+  },
+  emergency: {
+    alert: (message?: string, latitude?: number | null, longitude?: number | null) =>
+      api.post('/emergency-alerts/', { message, latitude, longitude }).then((r) => r.data),
   },
 };

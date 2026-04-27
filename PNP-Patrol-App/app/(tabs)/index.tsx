@@ -23,10 +23,13 @@ import NotificationsTest from '@/components/NotificationsTest';
 import { 
   initializeBackgroundTracking, 
   cleanupBackgroundTracking, 
-  startBackgroundSessionTracking 
+  startBackgroundSessionTracking,
+  startBackgroundLocationTracking,
+  stopBackgroundLocationTracking 
 } from '@/lib/backgroundTasks';
 import { setupNotificationListener } from '@/lib/notifications';
 import VehicleCamera from '@/components/VehicleCamera';
+import DriverMapView from '@/components/DriverMapView';
 import { photoService } from '@/services/photoService';
 import { 
   validateGPSPoint, 
@@ -47,9 +50,9 @@ const MIN_DISTANCE_METERS = 5; // Minimum movement to trigger update
 
 // Adaptive GPS interval based on movement
 const getAdaptiveInterval = (speed?: number | null) => {
-  if (!speed || speed === 0) return 30000;      // Stationary: 30s
-  if (speed < 2) return 15000;                 // Walking: 15s
-  if (speed < 8) return 10000;                 // Slow vehicle: 10s
+  if (!speed || speed === 0) return 10000;      // Stationary: 10s (reduced from 30s)
+  if (speed < 2) return 10000;                 // Walking: 10s
+  if (speed < 8) return 8000;                  // Slow vehicle: 8s
   return 5000;                                 // Fast vehicle: 5s
 };
 
@@ -101,6 +104,7 @@ export default function HomeScreen() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastGpsTime, setLastGpsTime] = useState<string | null>(null);
   const [queuedCount, setQueuedCount] = useState(0);
@@ -340,10 +344,14 @@ export default function HomeScreen() {
 
     try {
       const { status } = await Location.getForegroundPermissionsAsync();
+      const { status: bgStatus } = await Location.getBackgroundPermissionsAsync();
       if (status !== 'granted') {
-        console.error('❌ Location permission denied');
+        console.error('❌ Foreground location permission denied');
         Alert.alert('Location Required', 'Please enable location access to track your patrol route.');
         return;
+      }
+      if (bgStatus !== 'granted') {
+        console.log('⚠️ Background location not granted, tracking may stop when app is backgrounded');
       }
 
       console.log('🚀 Starting adaptive GPS tracking for session:', activeSession.id);
@@ -626,6 +634,13 @@ export default function HomeScreen() {
       Alert.alert('Location required', 'Allow location access to record patrol GPS.');
       return;
     }
+
+    // Also request background permissions for continuous tracking
+    const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+    if (bgStatus !== 'granted') {
+      Alert.alert('Background Location Required', 'Allow background location access for continuous GPS tracking during patrol.');
+      // Continue anyway, but tracking may stop when app is backgrounded
+    }
     
     setActionLoading(true);
     try {
@@ -646,6 +661,9 @@ export default function HomeScreen() {
       // This eliminates the 422 round-trip by ensuring session.id is always available
       console.log('🚀 Starting GPS tracking with confirmed session:', newSession.id);
       await startContinuousTracking(newSession);
+      
+      // Start background location tracking for continuous GPS
+      await startBackgroundLocationTracking(newSession.id);
       
       console.log(' Session and GPS tracking started successfully:', newSession.id);
     } catch (e: unknown) {
@@ -674,6 +692,9 @@ export default function HomeScreen() {
 
         console.log('🚀 Starting GPS tracking for offline session:', localSession.id);
         await startContinuousTracking(localSession as any);
+        
+        // Start background location for offline session
+        await startBackgroundLocationTracking(localSession.id);
         return;
       }
 
@@ -723,6 +744,7 @@ export default function HomeScreen() {
       console.log('🛑 Stopping session:', session.id);
       await ronda.sessions.stop(session.id);
       stopTracking();
+      await stopBackgroundLocationTracking();
       setSession(null);
       setLastGpsTime(null);
       console.log(' Session stopped successfully');
@@ -734,6 +756,34 @@ export default function HomeScreen() {
       setActionLoading(false);
     }
   };
+
+  const sendEmergencyAlert = useCallback(async (quiet = false) => {
+    setEmergencyLoading(true);
+    try {
+      let latitude: number | null = null;
+      let longitude: number | null = null;
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        latitude = location.coords.latitude;
+        longitude = location.coords.longitude;
+      }
+
+      const message = 'Emergency help requested by driver';
+      const result = await ronda.emergency.alert(message, latitude, longitude);
+      console.log('🚨 Emergency alert created:', result);
+      if (!quiet) {
+        Alert.alert('Emergency Sent', 'Help request sent to operations.');
+      }
+    } catch (e: unknown) {
+      console.error('❌ Failed to send emergency alert:', e);
+      if (!quiet) {
+        Alert.alert('Error', 'Unable to send emergency alert. Please try again.');
+      }
+    } finally {
+      setEmergencyLoading(false);
+    }
+  }, []);
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure?', [
@@ -838,6 +888,14 @@ export default function HomeScreen() {
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {/* Map View - Only show when session is active */}
+      {session?.is_active && (
+        <DriverMapView 
+          sessionId={session.id} 
+          isSessionActive={session.is_active} 
+        />
+      )}
 
       <View style={styles.sessionCard}>
         <Text style={styles.sessionStatus}>
