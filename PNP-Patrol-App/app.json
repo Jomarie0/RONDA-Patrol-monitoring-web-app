@@ -23,8 +23,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
+
       "package": "com.adlerr.PNPPatrolApp",
       "permissions": [
         "android.permission.CAMERA",
@@ -59,7 +58,8 @@
           "mode": "production",
           "useFirebase": false
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
