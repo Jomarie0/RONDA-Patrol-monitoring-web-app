@@ -182,13 +182,13 @@ class VehiclePhotoSubmissionViewSet(viewsets.ModelViewSet):
         try:
             print(f"🔍 DEBUG: Received batch upload request")
             print(f"🔍 DEBUG: Content-Type: {request.content_type}")
-            print(f"🔍 DEBUG: Request data keys: {list(request.data.keys())}")
+            print(f"🔍 DEBUG: Request POST keys: {list(request.POST.keys())}")
             print(f"🔍 DEBUG: Request files: {list(request.FILES.keys())}")
             
-            vehicle_id = request.data.get('vehicle_id')
-            photo_type = request.data.get('photo_type')
-            captured_at = request.data.get('captured_at')
-            shift_id = request.data.get('shift_id')
+            vehicle_id = request.POST.get('vehicle_id')
+            photo_type = request.POST.get('photo_type')
+            captured_at = request.POST.get('captured_at')
+            shift_id = request.POST.get('shift_id')
             
             print(f"🔍 DEBUG: vehicle_id={vehicle_id}, photo_type={photo_type}")
             
@@ -234,11 +234,11 @@ class VehiclePhotoSubmissionViewSet(viewsets.ModelViewSet):
                     photo_file = request.FILES[file_key]
                     
                     # Get metadata from corresponding fields
-                    shot_type = request.data.get(f'photos[{index}][shot_type]', f'photo_{index}')
-                    latitude = request.data.get(f'photos[{index}][latitude]')
-                    longitude = request.data.get(f'photos[{index}][longitude]')
-                    notes = request.data.get(f'photos[{index}][notes]', '')
-                    photo_captured_at = request.data.get(f'photos[{index}][captured_at]', captured_at)
+                    shot_type = request.POST.get(f'photos[{index}][shot_type]', f'photo_{index}')
+                    latitude = request.POST.get(f'photos[{index}][latitude]')
+                    longitude = request.POST.get(f'photos[{index}][longitude]')
+                    notes = request.POST.get(f'photos[{index}][notes]', '')
+                    photo_captured_at = request.POST.get(f'photos[{index}][captured_at]', captured_at)
                     
                     print(f"🔍 DEBUG: Processing photo {index}: {shot_type}, file: {photo_file.name}, size: {photo_file.size}")
                     
