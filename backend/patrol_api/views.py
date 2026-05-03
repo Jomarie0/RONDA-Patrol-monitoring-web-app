@@ -445,6 +445,13 @@ class DriverSessionViewSet(viewsets.ModelViewSet):
             # Don't fail if vehicle not found, just proceed without it
             if not vehicle:
                 print(f"⚠️ Vehicle {vehicle_id} not found, proceeding without vehicle")
+            else:
+                # Prevent two active sessions from using the same vehicle.
+                if DriverSession.objects.filter(vehicle=vehicle, is_active=True).exists():
+                    return Response(
+                        {'detail': f'Vehicle {vehicle.plate_number} is currently in use by an active driver.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
         
         # Create session - vehicle is now optional
         session = DriverSession.objects.create(

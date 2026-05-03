@@ -104,9 +104,10 @@ const darkMapStyle = [
 
 export default function HomeScreen() {
   const webViewRef = useRef<any>(null);
+  const startLocationRef = useRef<{ latitude: number; longitude: number; accuracy?: number } | null>(null);
   const { colors, theme } = useTheme();
   const { user, logout } = useAuth();
-  const { session, hasActiveSession, startSession, stopSession, loading } = useSession();
+  const { session, hasActiveSession, startSession, stopSession, loading, refreshSession } = useSession();
   const { currentLocation, getCurrentLocation, startTracking, stopTracking, startBackgroundTracking, stopBackgroundTracking, isBackgroundTracking } = useLocation();
   const router = useRouter();
   const [showVehicleSelect, setShowVehicleSelect] = useState(false);
@@ -115,6 +116,29 @@ export default function HomeScreen() {
   const [offlineQueueStats, setOfflineQueueStats] = useState({ totalEntries: 0, isOnline: true, isSyncing: false });
   const [locationName, setLocationName] = useState<string>('Locating...');
   const [addressData, setAddressData] = useState<GeocodedAddress | null>(null);
+  const [isEndingShift, setIsEndingShift] = useState(false);
+  const [estimatedDistanceMeters, setEstimatedDistanceMeters] = useState(0);
+  const MIN_MOVEMENT_METERS = 8; // Ignore tiny GPS jitter for demo readability.
+
+  const toRadians = (deg: number) => (deg * Math.PI) / 180;
+  const getDistanceMeters = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
+    const R = 6371000;
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRadians(lat1)) *
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
 
   const mapRegion = useMemo(() => {
     const region = {
@@ -132,6 +156,38 @@ export default function HomeScreen() {
       console.log('Patrol active - Session:', session.id, 'Vehicle:', session.vehicle_plate);
     }
   }, [session]);
+
+  // Keep an easy movement indicator for demo: straight-line estimate from start point.
+  useEffect(() => {
+    if (!hasActiveSession || !session) {
+      startLocationRef.current = null;
+      setEstimatedDistanceMeters(0);
+      return;
+    }
+    if (!currentLocation) return;
+
+    if (!startLocationRef.current) {
+      startLocationRef.current = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        accuracy: currentLocation.accuracy,
+      };
+      setEstimatedDistanceMeters(0);
+      return;
+    }
+
+    const rawDistance = getDistanceMeters(
+      startLocationRef.current.latitude,
+      startLocationRef.current.longitude,
+      currentLocation.latitude,
+      currentLocation.longitude
+    );
+    const startAccuracy = startLocationRef.current.accuracy ?? 0;
+    const currentAccuracy = currentLocation.accuracy ?? 0;
+    const uncertaintyBuffer = Math.min(30, startAccuracy + currentAccuracy);
+    const correctedDistance = Math.max(0, rawDistance - uncertaintyBuffer);
+    setEstimatedDistanceMeters(correctedDistance < MIN_MOVEMENT_METERS ? 0 : correctedDistance);
+  }, [hasActiveSession, session?.id, currentLocation]);
 
   // Initialize offline queue service
   useEffect(() => {
@@ -215,9 +271,17 @@ export default function HomeScreen() {
             altitude: currentLocation.altitude ? Math.round(currentLocation.altitude * 10) / 10 : undefined,
           });
         } catch (error: any) {
-          // Don't log 400 errors (session ended) as they're expected
+          // If session is no longer active, stop local tracking and refresh session state.
           if (error.response?.status === 400) {
-            console.log('GPS data not sent - session may have ended');
+            const detail = JSON.stringify(error.response?.data || {});
+            if (detail.includes('active session')) {
+              console.log('GPS post rejected: session is no longer active. Refreshing local session state.');
+              stopTracking();
+              stopBackgroundTracking();
+              refreshSession();
+              return;
+            }
+            console.log('GPS data not sent - bad request');
           } else {
             console.error('Failed to send GPS data:', error);
           }
@@ -226,7 +290,7 @@ export default function HomeScreen() {
 
       sendGpsData();
     }
-  }, [currentLocation, hasActiveSession, session]);
+  }, [currentLocation, hasActiveSession, session, stopTracking, stopBackgroundTracking, refreshSession]);
 
   const handleStartShift = () => {
     router.push('/vehicle-select' as any);
@@ -250,12 +314,8 @@ export default function HomeScreen() {
   };
 
   const handleStopShift = () => {
-    if (!session) return;
-    
-    // Show toast notification
-    toastService.success('Ending shift...', {
-      title: '🛑 Shift Ending'
-    });
+    if (!session || isEndingShift) return;
+    setIsEndingShift(true);
     
     // Navigate to photo capture for post-shift snapshots first
     const vehicleId = typeof session.vehicle === 'number' ? session.vehicle : session.vehicle?.id;
@@ -350,7 +410,11 @@ export default function HomeScreen() {
                 </Text>
               )}
             </View>
-            <TouchableOpacity style={styles.endShiftButton} onPress={handleStopShift}>
+            <TouchableOpacity
+              style={[styles.endShiftButton, isEndingShift && { opacity: 0.6 }]}
+              onPress={handleStopShift}
+              disabled={isEndingShift}
+            >
               <Text style={styles.endShiftButtonText}>End Shift</Text>
             </TouchableOpacity>
           </View>
@@ -389,7 +453,18 @@ export default function HomeScreen() {
                     : '0h 0m'}
                 </Text>
               </View>
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Est. Dist.</Text>
+                <Text style={styles.infoValue}>
+                  {estimatedDistanceMeters >= 1000
+                    ? `${(estimatedDistanceMeters / 1000).toFixed(2)} km`
+                    : `${Math.round(estimatedDistanceMeters)} m`}
+                </Text>
+              </View>
             </View>
+            <Text style={styles.distanceHintText}>
+              Estimated distance from start (straight-line).
+            </Text>
 
             {/* SOS Button */}
             <TouchableOpacity style={styles.sosButton} onPress={handleEmergency}>
@@ -567,6 +642,12 @@ const styles = StyleSheet.create({
     color: '#1b1b1b',
     fontSize: 14,
     fontWeight: '600',
+  },
+  distanceHintText: {
+    color: '#666',
+    fontSize: 11,
+    textAlign: 'center',
+    marginBottom: 10,
   },
   sosButton: {
     backgroundColor: '#ff4444',

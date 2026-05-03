@@ -12,6 +12,7 @@ import { useTheme } from '../src/theme/ThemeProvider';
 import { photosApi } from '../src/api/photos';
 import { cameraService } from '../src/services/camera';
 import { PhotoData, ShotType, PhotoType } from '../src/types';
+import { toastService } from '../src/services/toast';
 
 export default function PhotoCaptureScreen() {
   const { user } = useAuth();
@@ -107,7 +108,7 @@ export default function PhotoCaptureScreen() {
         if (sessionId) {
           await stopSession(sessionId);
         }
-        Alert.alert('Shift Complete', 'Your shift has ended successfully.');
+        toastService.success('Your shift has ended successfully.', { title: 'Shift Complete' });
       } else {
         // Pre-shift: start a new session
         await startSession({ vehicle_id: vehicleId });

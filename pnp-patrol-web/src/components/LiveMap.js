@@ -375,11 +375,6 @@ function PersistentTrail({ sessionId, recentPoints, showTrails }) {
 
 // Incident Markers Component
 function IncidentMarkers({ incidents, showIncidents, onResolve, onShowRoute, onHideRoute, userRole, incidentRoutes }) {
-  console.log(`[IncidentMarkers] Received ${incidents?.length || 0} incidents, showIncidents=${showIncidents}`);
-  if (incidents && incidents.length > 0) {
-    console.log(`[IncidentMarkers] First incident:`, incidents[0]);
-  }
-  
   if (!showIncidents || !incidents || incidents.length === 0) return null;
 
   const isAdmin = userRole === 'SUPER_ADMIN' || userRole === 'BRANCH_ADMIN';
@@ -398,35 +393,25 @@ function IncidentMarkers({ incidents, showIncidents, onResolve, onShowRoute, onH
         let lng = parseFloat(incident.longitude);
         const routeData = incidentRoutes[incident.id];
         
-        console.log(`[IncidentMarker] ID ${incident.id}: lat=${lat}, lng=${lng}, raw=${incident.latitude},${incident.longitude}`);
-        console.log(`[IncidentMarker] ID ${incident.id}: types - lat=${typeof incident.latitude}, lng=${typeof incident.longitude}`);
-
         // Skip if coordinates are invalid
         if (isNaN(lat) || isNaN(lng)) {
-          console.log(`[IncidentMarker] ID ${incident.id}: Skipping - invalid coordinates (NaN)`);
           return null;
         }
         if (lat === 0 && lng === 0) {
-          console.log(`[IncidentMarker] ID ${incident.id}: Skipping - GPS not ready (0,0)`);
           return null;
         }
         // Check if coordinates might be swapped (lng/lat instead of lat/lng)
         // Valid lat: -90 to 90, valid lng: -180 to 180
         if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
-          console.log(`[IncidentMarker] ID ${incident.id}: Coordinates out of normal range, checking if swapped...`);
           // If lng is within lat range and lat is within lng range, they might be swapped
           if (Math.abs(lng) <= 90 && Math.abs(lat) <= 180) {
-            console.log(`[IncidentMarker] ID ${incident.id}: Swapping coordinates!`);
             const temp = lat;
             lat = lng;
             lng = temp;
           } else {
-            console.log(`[IncidentMarker] ID ${incident.id}: Skipping - coordinates completely out of range`);
             return null;
           }
         }
-
-        console.log(`[IncidentMarker] ID ${incident.id}: Rendering marker at [${lat}, ${lng}]`);
 
         return (
           <React.Fragment key={`incident-${incident.id}`}>
@@ -445,11 +430,6 @@ function IncidentMarkers({ incidents, showIncidents, onResolve, onShowRoute, onH
               key={`marker-${incident.id}-${lat}-${lng}`}
               position={[lat, lng]}
               icon={createIncidentIcon(isEmergency)}
-              eventHandlers={{
-                add: (e) => {
-                  console.log(`[IncidentMarker] ID ${incident.id}: Marker added at [${lat}, ${lng}]`, e.target.getLatLng());
-                }
-              }}
             >
               <Popup>
                 <div className="incident-popup">
@@ -518,17 +498,30 @@ function IncidentMarkers({ incidents, showIncidents, onResolve, onShowRoute, onH
   );
 }
 
-function LiveMarkers({ locations, branchFilter, userRole, onPing, pinging, showTrails, incidents }) {
+function LiveMarkers({ locations, branchFilter, userRole, onPing, pinging, showTrails, incidents, snappedPositions }) {
   const filtered = branchFilter
     ? locations.filter((l) => l.branch === branchFilter)
     : locations;
 
-  const withGPS = filtered.filter((l) => l.latitude != null && l.longitude != null);
-  const withoutGPS = filtered.filter((l) => l.latitude == null || l.longitude == null);
+  const withGPS = filtered.filter((l) => {
+    const snapped = snappedPositions?.[l.session_id];
+    const lat = snapped?.latitude ?? l.latitude;
+    const lng = snapped?.longitude ?? l.longitude;
+    return lat != null && lng != null;
+  });
+  const withoutGPS = filtered.filter((l) => {
+    const snapped = snappedPositions?.[l.session_id];
+    const lat = snapped?.latitude ?? l.latitude;
+    const lng = snapped?.longitude ?? l.longitude;
+    return lat == null || lng == null;
+  });
 
   const groupedByCoords = {};
   withGPS.forEach((loc) => {
-    const key = `${loc.latitude.toFixed(6)},${loc.longitude.toFixed(6)}`;
+    const snapped = snappedPositions?.[loc.session_id];
+    const lat = snapped?.latitude ?? loc.latitude;
+    const lng = snapped?.longitude ?? loc.longitude;
+    const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
     if (!groupedByCoords[key]) {
       groupedByCoords[key] = [];
     }
@@ -544,6 +537,9 @@ function LiveMarkers({ locations, branchFilter, userRole, onPing, pinging, showT
         
         return locs.map((loc, index) => {
           const position = getCircularOffset(centerLat, centerLng, index, locs.length);
+          const snapped = snappedPositions?.[loc.session_id];
+          const displayLat = snapped?.latitude ?? loc.latitude;
+          const displayLng = snapped?.longitude ?? loc.longitude;
           
           // Determine ping status display
           const pingStatus = loc.recent_ping ? loc.recent_ping.status : null;
@@ -629,7 +625,7 @@ function LiveMarkers({ locations, branchFilter, userRole, onPing, pinging, showT
                     {/* Location Info */}
                     <div className="popup-location">
                       <span className="coords">
-                        {loc.latitude?.toFixed(4)}, {loc.longitude?.toFixed(4)}
+                        {displayLat?.toFixed(4)}, {displayLng?.toFixed(4)}
                       </span>
                       <span className="timestamp">
                         {loc.timestamp ? new Date(loc.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '—'}
@@ -692,10 +688,14 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
   const [lastUpdate, setLastUpdate] = useState(null);
   const [selectedDriver, setSelectedDriver] = useState('');
   const [pinging, setPinging] = useState({});
-  const [showTrails, setShowTrails] = useState(false);
+  const [showTrails, setShowTrails] = useState(true);
   const [showIncidents, setShowIncidents] = useState(true);
   const [incidentRoutes, setIncidentRoutes] = useState({});
+  const [snappedPositions, setSnappedPositions] = useState({});
   const fetchRef = useRef(null);
+  const fetchInFlightRef = useRef(false);
+  const fetchSeqRef = useRef(0);
+  const snapFetchAtRef = useRef({});
   const prevDriversRef = useRef(new Set()); // Track previously active drivers
 
   const handlePing = async (driverId, driverName) => {
@@ -755,11 +755,14 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
 
   const refreshLiveData = async () => {
     try {
+      const requestId = ++fetchSeqRef.current;
       const [liveData, sessionsData, incidentsData] = await Promise.all([
-        ronda.sessions.live(),
+        ronda.sessions.live({ _ts: Date.now() }),
         ronda.sessions.list(),
         ronda.incidents.list(),
       ]);
+      // Ignore stale responses that arrive out of order.
+      if (requestId !== fetchSeqRef.current) return;
       setLocations(liveData);
       setAllSessions(sessionsData);
       setIncidents(incidentsData);
@@ -770,12 +773,19 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
   };
 
   const fetchLive = async () => {
+    if (fetchInFlightRef.current) return SMART_POLL_INTERVAL;
+    fetchInFlightRef.current = true;
     try {
+      const requestId = ++fetchSeqRef.current;
       const [liveData, sessionsData, incidentsData] = await Promise.all([
-        ronda.sessions.live(),
+        ronda.sessions.live({ _ts: Date.now() }),
         ronda.sessions.list(),
         ronda.incidents.list(),
       ]);
+      // Ignore stale responses that arrive out of order.
+      if (requestId !== fetchSeqRef.current) {
+        return SMART_POLL_INTERVAL;
+      }
 
       // Count active drivers with GPS
       const activeDriversWithGPS = liveData.filter(loc => loc.latitude != null && loc.longitude != null);
@@ -826,33 +836,94 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
       setError(errorMessage);
       return SMART_POLL_INTERVAL * 2;
     } finally {
+      fetchInFlightRef.current = false;
       setLoading(false);
     }
   };
 
   useEffect(() => {
     let isMounted = true;
-    
-    // Initial fetch
-    fetchLive();
-    
-    // Set up polling interval
-    fetchRef.current = setInterval(() => {
-      if (isMounted) {
-        fetchLive();
+
+    const scheduleNextPoll = (delay) => {
+      if (!isMounted) return;
+      if (fetchRef.current) {
+        clearTimeout(fetchRef.current);
       }
-    }, REFRESH_MS);
-    
-    // Cleanup
+      fetchRef.current = setTimeout(async () => {
+        const nextDelay = await fetchLive();
+        scheduleNextPoll(nextDelay);
+      }, delay);
+    };
+
+    // Initial fetch + adaptive schedule.
+    fetchLive().then((nextDelay) => scheduleNextPoll(nextDelay));
+
     return () => {
       isMounted = false;
       if (fetchRef.current) {
-        clearInterval(fetchRef.current);
+        clearTimeout(fetchRef.current);
         fetchRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateSnappedPositions = async () => {
+      const candidates = locations.filter(
+        (loc) => loc?.session_id && Array.isArray(loc.recent_points) && loc.recent_points.length >= 2
+      );
+      if (candidates.length === 0) return;
+
+      const now = Date.now();
+      const due = candidates.filter((loc) => {
+        const lastFetchedAt = snapFetchAtRef.current[loc.session_id] || 0;
+        return now - lastFetchedAt >= 20000;
+      });
+      if (due.length === 0) return;
+
+      due.forEach((loc) => {
+        snapFetchAtRef.current[loc.session_id] = now;
+      });
+
+      const results = await Promise.allSettled(
+        due.map(async (loc) => {
+          const data = await ronda.sessions.matchedRoute(loc.session_id, { limit: 120, valid_only: 1 });
+          const geom = data && data.matched_geometry;
+          const coords = geom && geom.type === 'LineString' ? geom.coordinates : null;
+          if (!coords || coords.length === 0) return null;
+          const last = coords[coords.length - 1];
+          if (!Array.isArray(last) || last.length < 2) return null;
+          const lon = Number(last[0]);
+          const lat = Number(last[1]);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+          return { sessionId: loc.session_id, latitude: lat, longitude: lon };
+        })
+      );
+
+      if (cancelled) return;
+      setSnappedPositions((prev) => {
+        const next = { ...prev };
+        results.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value) {
+            next[result.value.sessionId] = {
+              latitude: result.value.latitude,
+              longitude: result.value.longitude,
+              updatedAt: now,
+            };
+          }
+        });
+        return next;
+      });
+    };
+
+    hydrateSnappedPositions();
+    return () => {
+      cancelled = true;
+    };
+  }, [locations]);
 
   const displayList = branchFilter
     ? [...locations.filter((l) => l.branch === branchFilter), ...allSessions.filter((s) => s.branch_name && !locations.some((l) => l.session_id === s.id)).map((s) => ({ session_id: s.id, driver: s.driver_username, vehicle: s.vehicle_plate, branch: s.branch_name || s.branch, latitude: null, longitude: null, timestamp: null, is_active: s.is_active }))]
@@ -947,6 +1018,7 @@ export function LiveMap({ branchFilter, onBranchFilterChange, branches }) {
             pinging={pinging}
             showTrails={showTrails}
             incidents={incidents}
+            snappedPositions={snappedPositions}
           />
           <IncidentMarkers
             incidents={incidents}

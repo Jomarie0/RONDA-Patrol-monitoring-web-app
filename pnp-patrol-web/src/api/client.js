@@ -3,12 +3,14 @@
  */
 import axios from 'axios';
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://192.168.101.82:8000/api';
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://192.168.18.12:8000/api';
 
 export const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
+
+console.log('[API] Base URL:', BASE_URL);
 
 let isRefreshing = false;
 let refreshPromise = null;

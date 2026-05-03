@@ -97,8 +97,8 @@ const WebViewMap = forwardRef<WebView, WebViewMapProps>(({ currentLocation, onMa
             }).addTo(map);
           }
           
-          // Center map on new location
-          map.setView([latitude, longitude], 12);
+          // Keep the current zoom while following the marker.
+          map.setView([latitude, longitude], map.getZoom(), { animate: true });
         }
         
         // Notify React Native that map is ready
@@ -106,17 +106,26 @@ const WebViewMap = forwardRef<WebView, WebViewMapProps>(({ currentLocation, onMa
           type: 'mapReady'
         }));
         
-        // Listen for messages from React Native
-        document.addEventListener('message', function(event) {
-          const data = JSON.parse(event.data);
-          if (data.type === 'locationUpdate' && data.location) {
-            updateLocation(data.location.latitude, data.location.longitude, data.location.accuracy);
+        function handleNativeMessage(event) {
+          try {
+            const raw = event && event.data != null ? event.data : null;
+            if (!raw) return;
+            const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (data.type === 'locationUpdate' && data.location) {
+              updateLocation(data.location.latitude, data.location.longitude, data.location.accuracy);
+            }
+            if (data.type === 'centerLocation' && data.location) {
+              console.log('Centering map to:', data.location);
+              map.setView([data.location.latitude, data.location.longitude], 16, { animate: true });
+            }
+          } catch (err) {
+            console.log('Map message parse error:', err);
           }
-          if (data.type === 'centerLocation' && data.location) {
-            console.log('Centering map to:', data.location);
-            map.setView([data.location.latitude, data.location.longitude], 16, { animate: true });
-          }
-        });
+        }
+
+        // Support both message channels used by React Native WebView.
+        document.addEventListener('message', handleNativeMessage);
+        window.addEventListener('message', handleNativeMessage);
         
         // Set bounds to Quezon province
         map.setMaxBounds([[13.2, 121.0], [14.5, 122.2]]);
@@ -133,6 +142,18 @@ const WebViewMap = forwardRef<WebView, WebViewMapProps>(({ currentLocation, onMa
         location: currentLocation
       }));
     }
+  }, [currentLocation, ref]);
+
+  useEffect(() => {
+    if (!currentLocation || !(ref as any)?.current) return;
+    // Re-send latest location once map is mounted/ready.
+    const timer = setTimeout(() => {
+      (ref as any).current?.postMessage(JSON.stringify({
+        type: 'locationUpdate',
+        location: currentLocation
+      }));
+    }, 300);
+    return () => clearTimeout(timer);
   }, [currentLocation, ref]);
 
   const handleMessage = (event: any) => {

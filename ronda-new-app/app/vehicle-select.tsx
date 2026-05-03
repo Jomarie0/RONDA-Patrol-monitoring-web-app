@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../src/hooks/useAuth';
 import { useTheme } from '../src/theme/ThemeProvider';
 import { vehiclesApi } from '../src/api/vehicles';
+import { sessionsApi } from '../src/api/sessions';
 
 export default function VehicleSelectScreen() {
   const { user } = useAuth();
@@ -17,6 +18,7 @@ export default function VehicleSelectScreen() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  const [activeVehiclePlates, setActiveVehiclePlates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadVehicles();
@@ -34,6 +36,22 @@ export default function VehicleSelectScreen() {
       
       // Handle both array and paginated response
       const vehicles = Array.isArray(response) ? response : (response.results || []);
+
+      // Best-effort: mark vehicles currently used by active sessions.
+      // Backend still enforces this as final source of truth.
+      try {
+        const live = await sessionsApi.getLiveLocations();
+        const usedPlates = new Set(
+          (Array.isArray(live) ? live : [])
+            .map((item: any) => (item?.vehicle || '').toString().trim().toUpperCase())
+            .filter(Boolean)
+        );
+        setActiveVehiclePlates(usedPlates);
+      } catch (liveErr) {
+        console.log('Could not load live session occupancy. Proceeding with vehicle list only.');
+        setActiveVehiclePlates(new Set());
+      }
+
       setVehicles(vehicles);
     } catch (error: any) {
       console.error('Failed to load vehicles:', error);
@@ -87,28 +105,40 @@ export default function VehicleSelectScreen() {
             </Text>
           </View>
         ) : (
-          vehicles.map((vehicle) => (
-            <TouchableOpacity
-              key={vehicle.id}
-              style={[
-                styles.vehicleCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-                selectedVehicle?.id === vehicle.id && [styles.selectedCard, { borderColor: colors.primary }],
-              ]}
-              onPress={() => setSelectedVehicle(vehicle)}
-            >
-              <View style={styles.vehicleInfo}>
-                <Text style={[styles.plateNumber, { color: colors.text }]}>{vehicle.plate_number}</Text>
-                <Text style={[styles.vehicleName, { color: colors.mutedText }]}>{vehicle.name || 'Unassigned'}</Text>
-              </View>
-              <View style={[
-                styles.checkmark,
-                selectedVehicle?.id === vehicle.id && styles.checkmarkSelected
-              ]}>
-                {selectedVehicle?.id === vehicle.id && <Text style={styles.checkmarkText}>✓</Text>}
-              </View>
-            </TouchableOpacity>
-          ))
+          vehicles.map((vehicle) => {
+            const isInUse = activeVehiclePlates.has((vehicle.plate_number || '').toString().trim().toUpperCase());
+            return (
+              <TouchableOpacity
+                key={vehicle.id}
+                style={[
+                  styles.vehicleCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  selectedVehicle?.id === vehicle.id && [styles.selectedCard, { borderColor: colors.primary }],
+                  isInUse && styles.disabledCard,
+                ]}
+                onPress={() => !isInUse && setSelectedVehicle(vehicle)}
+                disabled={isInUse}
+              >
+                <View style={styles.vehicleInfo}>
+                  <Text style={[styles.plateNumber, { color: isInUse ? colors.mutedText : colors.text }]}>
+                    {vehicle.plate_number}
+                  </Text>
+                  <Text style={[styles.vehicleName, { color: colors.mutedText }]}>
+                    {vehicle.name || 'Unassigned'}
+                  </Text>
+                  {isInUse && (
+                    <Text style={styles.inUseText}>Currently used by an active driver</Text>
+                  )}
+                </View>
+                <View style={[
+                  styles.checkmark,
+                  selectedVehicle?.id === vehicle.id && styles.checkmarkSelected
+                ]}>
+                  {selectedVehicle?.id === vehicle.id && <Text style={styles.checkmarkText}>✓</Text>}
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
 
@@ -184,6 +214,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
+  disabledCard: {
+    opacity: 0.55,
+  },
   selectedCard: {
     borderWidth: 2,
   },
@@ -197,6 +230,12 @@ const styles = StyleSheet.create({
   vehicleName: {
     fontSize: 14,
     marginTop: 4,
+  },
+  inUseText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#ff6b6b',
+    fontWeight: '600',
   },
   checkmark: {
     width: 28,

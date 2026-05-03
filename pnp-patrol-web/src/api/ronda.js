@@ -33,7 +33,7 @@ export const vehicles = {
 export const sessions = {
   list: (params) => api.get('/sessions/', { params }).then((r) => r.data),
   get: (id) => api.get(`/sessions/${id}/`).then((r) => r.data),
-  live: () => api.get('/sessions/live/').then((r) => r.data),
+  live: (params = {}) => api.get('/sessions/live/', { params }).then((r) => r.data),
   matchedRoute: (id, params) => api.get(`/sessions/${id}/matched-route/`, { params }).then((r) => r.data),
   remove: (id) => api.delete(`/sessions/${id}/`).then((r) => r.data),
 };
