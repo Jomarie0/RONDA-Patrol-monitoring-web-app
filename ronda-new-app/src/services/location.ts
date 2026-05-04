@@ -22,6 +22,7 @@ export class LocationService {
   private isTracking = false;
   private isBackgroundTracking = false;
   private lastLocation: LocationData | null = null;
+  private currentSessionId: number | null = null;
 
   
   /**
@@ -207,7 +208,10 @@ export class LocationService {
         return false;
       }
 
-      // Define the background task
+      // Store the current session ID
+      this.currentSessionId = sessionId;
+
+      // Define the background task that uses the current session ID
       TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
         if (error) {
           console.error('Background location task error:', error);
@@ -230,7 +234,8 @@ export class LocationService {
           if (this.shouldUpdateLocation(locationData)) {
             this.lastLocation = locationData;
             console.log('Background location update (filtered):', locationData);
-            await this.sendBackgroundLocation(location, sessionId);
+            // Use the current session ID from the service, not the closure
+            await this.sendBackgroundLocation(location);
           } else {
             console.log('Background location update skipped (drift filter)');
           }
@@ -272,22 +277,58 @@ export class LocationService {
         console.error('Error stopping background location tracking:', error);
       }
     } finally {
-      // Always reset the tracking flag
+      // Always reset the tracking flag and session ID
       this.isBackgroundTracking = false;
+      this.currentSessionId = null;
     }
+  }
+
+  /**
+   * Update the session ID for background tracking
+   * Call this when the active session changes
+   */
+  async updateSessionId(newSessionId: number): Promise<void> {
+    const wasTracking = this.isBackgroundTracking;
+    
+    // Stop current tracking if active
+    if (wasTracking) {
+      await this.stopBackgroundTracking();
+    }
+    
+    // Update session ID and restart tracking if it was active
+    this.currentSessionId = newSessionId;
+    if (wasTracking) {
+      console.log('Restarting background tracking with new session ID:', newSessionId);
+      await this.startBackgroundTracking(newSessionId);
+    } else {
+      console.log('Updated session ID for background tracking:', newSessionId);
+    }
+  }
+
+  /**
+   * Get the current session ID
+   */
+  getCurrentSessionId(): number | null {
+    return this.currentSessionId;
   }
 
   /**
    * Send background location to backend (with offline support)
    */
-  private async sendBackgroundLocation(location: Location.LocationObject, sessionId: number): Promise<void> {
+  private async sendBackgroundLocation(location: Location.LocationObject): Promise<void> {
     try {
+      // Guardrail: Check if we have a valid current session ID
+      if (!this.currentSessionId) {
+        console.warn('Background GPS data not sent - no active session');
+        return;
+      }
+
       // Import offline queue service to handle offline storage
       const { offlineGpsQueueService } = await import('./offlineGpsQueue');
       
       // Add GPS data to queue (will handle online/offline automatically)
       await offlineGpsQueueService.addGpsData({
-        sessionId,
+        sessionId: this.currentSessionId,
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
         timestamp: new Date().toISOString(),

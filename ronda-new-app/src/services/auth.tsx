@@ -68,6 +68,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(parsedUser);
       await AsyncStorage.setItem(USER_KEY, JSON.stringify(parsedUser));
       
+      // Clear any existing offline GPS data to prevent cross-account uploads
+      const { offlineStorageService } = await import('./offlineStorage');
+      await offlineStorageService.clearGpsQueue();
+      
       // Request app permissions after successful login
       console.log('🔐 Requesting permissions after login...');
       PermissionsService.requestAllPermissions().catch((error) => {
@@ -86,6 +90,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authApi.logout();
       setUser(null);
       await AsyncStorage.removeItem(USER_KEY);
+      
+      // Clear auth tokens
+      await clearTokens();
+      
+      // Clear offline GPS data to prevent cross-account uploads
+      const { offlineStorageService } = await import('./offlineStorage');
+      await offlineStorageService.clearGpsQueue();
+      
+      console.log('Logout completed - tokens and GPS queue cleared');
     } catch (error) {
       console.error('Logout failed:', error);
       throw error;

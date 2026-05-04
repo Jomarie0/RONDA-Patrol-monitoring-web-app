@@ -73,6 +73,12 @@ export class OfflineGpsQueueService {
    */
   async addGpsData(entry: Omit<OfflineGpsEntry, 'id' | 'createdAt'>): Promise<void> {
     try {
+      // Guardrail: Validate session ID before processing
+      if (!entry.sessionId || entry.sessionId <= 0) {
+        console.warn('GPS data rejected - invalid session ID:', entry.sessionId);
+        return;
+      }
+
       const isOnline = await networkConnectivityService.isConnected();
       
       if (isOnline) {
@@ -95,7 +101,14 @@ export class OfflineGpsQueueService {
               altitude: entry.altitude,
             });
             console.log('GPS data sent immediately (online)');
-          } catch (error) {
+          } catch (error: any) {
+            // Handle wrong session errors specifically
+            if (this.isWrongSessionError(error)) {
+              console.warn('GPS data rejected - wrong session, dropping entry');
+              // Don't store offline data for wrong session errors
+              return;
+            }
+            
             // If immediate send fails, store for offline
             console.log('Immediate send failed, storing offline:', error);
             await offlineStorageService.storeGpsData(entry);
@@ -113,6 +126,19 @@ export class OfflineGpsQueueService {
     } catch (error) {
       console.error('Failed to add GPS data to queue:', error);
     }
+  }
+
+  /**
+   * Check if error is related to wrong session
+   */
+  private isWrongSessionError(error: any): boolean {
+    if (error?.response?.status === 400 || error?.response?.status === 403) {
+      const errorMessage = error?.response?.data?.detail || error?.message || '';
+      return errorMessage.includes('only add GPS logs to your own session') ||
+             errorMessage.includes('does not exist') ||
+             errorMessage.includes('not active');
+    }
+    return false;
   }
 
   /**
@@ -172,10 +198,18 @@ export class OfflineGpsQueueService {
             await new Promise(resolve => setTimeout(resolve, 100));
             
           } catch (error: any) {
-            result.failedCount++;
-            const errorMsg = `Failed to upload entry ${entry.id}: ${error.message}`;
-            result.errors.push(errorMsg);
-            console.error(errorMsg);
+            // Check if this is a wrong session error - if so, drop the entry permanently
+            if (this.isWrongSessionError(error)) {
+              console.warn(`Dropping entry ${entry.id} - wrong session: ${entry.sessionId}`);
+              uploadedIds.push(entry.id); // Mark as "uploaded" to remove from queue
+              result.failedCount++;
+              result.errors.push(`Dropped entry ${entry.id} - wrong session`);
+            } else {
+              result.failedCount++;
+              const errorMsg = `Failed to upload entry ${entry.id}: ${error.message}`;
+              result.errors.push(errorMsg);
+              console.error(errorMsg);
+            }
           }
         }
 

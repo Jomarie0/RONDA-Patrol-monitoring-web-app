@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../api/client';
+import api, { toAbsoluteBackendUrl } from '../api/client';
 import { Pagination } from '../components/Pagination';
 import './SnapshotsPage.css';
 
@@ -282,7 +282,7 @@ export function SnapshotsPage() {
                     <div key={photo.id} className="photo-item">
                       {photo.image_url ? (
                         <img 
-                          src={photo.image_url} 
+                          src={toAbsoluteBackendUrl(photo.image_url)} 
                           alt={photo.shot_type}
                           className="photo-image"
                           onError={(e) => {

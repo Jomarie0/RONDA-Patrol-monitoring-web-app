@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api, { WS_BASE_URL } from '../api/client';
 import SimplePeer from 'simple-peer';
 
 const VideoCall = ({ call, onEndCall, currentUser }) => {
@@ -56,7 +56,8 @@ const VideoCall = ({ call, onEndCall, currentUser }) => {
       setLocalStream(stream);
 
       // Initialize WebSocket connection
-      const wsUrl = `ws://192.168.1.18:8000/ws/call/?token=${localStorage.getItem('access_token')}`;
+      const token = localStorage.getItem('accessToken');
+      const wsUrl = `${WS_BASE_URL}/call/?token=${token}`;
       const ws = new WebSocket(wsUrl);
       websocketRef.current = ws;
 
@@ -170,7 +171,7 @@ const VideoCall = ({ call, onEndCall, currentUser }) => {
   const handleEndCall = async () => {
     try {
       // End call via API
-      await axios.post(`/api/video-calls/${call.id}/end/`);
+      await api.post(`/video-calls/${call.id}/end/`);
       
       // Notify via WebSocket
       if (websocketRef.current) {

@@ -954,12 +954,23 @@ class GPSLogViewSet(viewsets.ModelViewSet):
             
             print(f" [GPS] Session validation passed | Session {session.id} is active and belongs to user {user.id}")
         
-        # Check if new GPS fields exist in database
+        # Check if new GPS fields exist in database (database-aware approach)
         try:
             from django.db import connection
             with connection.cursor() as cursor:
-                cursor.execute("PRAGMA table_info(patrol_api_gpslog)")
-                columns = [col[1] for col in cursor.fetchall()]
+                # Use database-agnostic approach instead of PRAGMA (SQLite-specific)
+                if connection.vendor == 'sqlite':
+                    cursor.execute("PRAGMA table_info(patrol_api_gpslog)")
+                    columns = [col[1] for col in cursor.fetchall()]
+                else:
+                    # For PostgreSQL and other databases, use information_schema
+                    cursor.execute("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = 'patrol_api_gpslog'
+                    """)
+                    columns = [row[0] for row in cursor.fetchall()]
+                
                 new_fields_exist = all(field in columns for field in ['accuracy', 'speed', 'altitude', 'is_valid', 'rejection_reason', 'accuracy_score'])
             
             if not new_fields_exist:

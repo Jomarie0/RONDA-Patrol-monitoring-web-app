@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import VideoCall from './VideoCall';
 import IncomingCall from './IncomingCall';
+import { WS_BASE_URL } from '../api/client';
 
 const VideoCallContext = createContext();
 
@@ -21,8 +22,8 @@ export const VideoCallProvider = ({ children, currentUser }) => {
     if (!currentUser) return;
 
     // Initialize WebSocket connection
-    const token = localStorage.getItem('access_token');
-    const wsUrl = `ws://192.168.1.18:8000/ws/call/?token=${token}`;
+    const token = localStorage.getItem('accessToken');
+    const wsUrl = `${WS_BASE_URL}/call/?token=${token}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
