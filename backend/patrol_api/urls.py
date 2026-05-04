@@ -36,6 +36,7 @@ from .notifications import (
     NotificationRegistrationView,
 )
 from . import urls_snapshots
+from . import health
 
 router = DefaultRouter()
 router.register(r'branches', BranchViewSet, basename='branch')
@@ -51,17 +52,32 @@ class RondaTokenObtainPairView(TokenObtainPairView):
 
 
 urlpatterns = [
+    # Health check endpoints
+    path('health/', health.health_check, name='health_check'),
+    path('health/detailed/', health.health_detailed, name='health_detailed'),
+    path('health/ready/', health.health_readiness, name='health_readiness'),
+    path('health/live/', health.health_liveness, name='health_liveness'),
+    
+    # Auth endpoints
     path('auth/token/', RondaTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    
+    # Session endpoints
     path('sessions/live/', LiveLocationsView.as_view(), name='live_locations'),
     path('sessions/<int:pk>/matched-route/', SessionMatchedRouteView.as_view(), name='session_matched_route'),
+    
+    # Ping endpoints
     path('ping/send/', PingSendView.as_view(), name='ping_send'),
     path('ping/respond/', PingRespondView.as_view(), name='ping_respond'),
     path('ping/active/', PingActiveView.as_view(), name='ping_active'),
     path('emergency/pending-pings/', PendingPingsView.as_view(), name='pending_pings'),
+    
+    # Notification endpoints
     path('notifications/register/', register_push_token, name='register_push_token'),
     path('notifications/unregister/', unregister_push_token, name='unregister_push_token'),
     path('notifications/', NotificationRegistrationView.as_view(), name='notification_registration'),
+    
+    # API routes
     path('', include(router.urls)),
     path('', include(urls_snapshots.urlpatterns)),
 ]

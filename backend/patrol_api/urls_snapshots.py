@@ -9,6 +9,7 @@ router = DefaultRouter()
 router.register(r'photos', views_snapshots.VehiclePhotoViewSet, basename='vehicle-photos')
 router.register(r'requirements', views_snapshots.PhotoRequirementViewSet, basename='photo-requirements')
 router.register(r'damage-reports', views_snapshots.DamageReportViewSet, basename='damage-reports')
+router.register(r'submissions', views_snapshots.SnapshotSubmissionViewSet, basename='snapshot-submissions')
 
 urlpatterns = [
     path('vehicle-photos/', include(router.urls)),

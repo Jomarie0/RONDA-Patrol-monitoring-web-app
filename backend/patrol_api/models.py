@@ -326,3 +326,6 @@ class VideoCall(models.Model):
         if self.ended_at and self.started_at and not self.duration_seconds:
             self.duration_seconds = int((self.ended_at - self.started_at).total_seconds())
         super().save(*args, **kwargs)
+
+# Import snapshot models to ensure they're registered
+from .models_snapshots import VehiclePhoto, PhotoRequirement, DamageReport

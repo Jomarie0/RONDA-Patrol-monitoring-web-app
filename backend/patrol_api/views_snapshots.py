@@ -251,3 +251,49 @@ class DamageReportViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(vehicle_id=vehicle_id)
         
         return queryset.select_related('vehicle', 'reporting_officer', 'shift').order_by('-reported_at')
+
+
+class SnapshotSubmissionViewSet(viewsets.ViewSet):
+    """ViewSet for aggregated snapshot submissions - what the frontend expects"""
+    
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def list(self, request):
+        """Get aggregated snapshot submissions for the frontend"""
+        try:
+            # Get all vehicle photos with related data
+            photos = VehiclePhoto.objects.select_related(
+                'vehicle', 'officer', 'shift'
+            ).order_by('-captured_at')
+            
+            # Filter by user if not staff
+            if not request.user.is_staff:
+                photos = photos.filter(officer=request.user)
+            
+            # Group photos into submissions (what frontend expects)
+            submissions = []
+            for photo in photos:
+                submission = {
+                    'id': photo.id,
+                    'driver_name': photo.officer.get_full_name() or photo.officer.username,
+                    'branch_name': photo.officer.branch.name if photo.officer.branch else 'Unknown',
+                    'vehicle_plate': photo.vehicle.plate_number,
+                    'photo_type': photo.photo_type,
+                    'shot_type': photo.shot_type,
+                    'submitted_at': photo.uploaded_at.isoformat(),
+                    'captured_at': photo.captured_at.isoformat(),
+                    'image_url': request.build_absolute_uri(photo.image.url) if photo.image else None,
+                    'thumbnail_url': request.build_absolute_uri(photo.thumbnail.url) if photo.thumbnail else None,
+                    'validation_status': photo.validation_status,
+                    'image_quality_score': photo.image_quality_score,
+                    'notes': photo.notes,
+                    'latitude': float(photo.latitude) if photo.latitude else None,
+                    'longitude': float(photo.longitude) if photo.longitude else None,
+                }
+                submissions.append(submission)
+            
+            return Response(submissions)
+            
+        except Exception as e:
+            print(f"Error loading snapshots: {e}")
+            return Response([], status=200)  # Return empty list on error
